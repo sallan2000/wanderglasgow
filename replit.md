@@ -1,44 +1,50 @@
-# [Project name]
+# Glasgow Walks
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A mobile-friendly, self-guided Glasgow walking-tour website with art, music, history and sport themes.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/glasgow-walks run dev` — run the website.
+- `pnpm --filter @workspace/glasgow-walks run typecheck` — check the app.
+- `pnpm --filter @workspace/glasgow-walks run build` — produce static files in `artifacts/glasgow-walks/dist/public`.
+- No required environment variables, credentials, API server, or database. Geolocation requires HTTPS.
+- See `artifacts/glasgow-walks/README.md` for independent-host build instructions and external mapping-service assumptions.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- React, TypeScript, Vite, and plain CSS in a portable static web app.
+- Leaflet/OpenStreetMap maps and an independent OSRM foot-routing endpoint.
+- The API server and database packages are unused scaffolds, not product dependencies.
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- Website: `artifacts/glasgow-walks`.
+- Curated tours and stops: `src/tours.ts`.
+- Interface, geolocation and map routing: `src/App.tsx`.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- All tour ranking runs on the device. Do not persist GPS coordinates.
+- Stops are sightseeing viewpoints, not promises of admission or current opening. Avoid descriptions that assume closed/restoring venues can be entered.
+- Public mapping endpoints suit an initial small-scale version, not an unlimited-traffic availability promise. Review service policies before public launch.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Eight themed Glasgow walks across art, music, history and sport.
+- Nearby-start recommendations after explicit GPS permission.
+- Visitors choose a theme or all nearby attractions. Order those attractions using actual pedestrian-network distances, with bounded detours and no forced return to the start.
+- Interactive stop maps and true foot-network routes, with a no-GPS route-from-tour-start option.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- The user requires the website not to rely on any Replit-specific infrastructure or services.
+- Keep the product a portable static website using standard browser APIs and independently available mapping services. Do not add Replit databases, auth, connectors, storage, or runtime APIs.
+- **Why:** The user explicitly requested hosting and service independence.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Keep the package name matched to its configured managed workflow.
+- Estimates exclude sightseeing time. Nearby-start distances are straight-line distances and must remain labelled as such.
 
 ## Pointers
 

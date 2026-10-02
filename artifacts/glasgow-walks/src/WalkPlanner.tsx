@@ -1,0 +1,198 @@
+import { useEffect, useRef, useState } from 'react';
+import { LocateFixed, Navigation } from 'lucide-react';
+import { loadLeaflet, getPosition } from './browser-helpers';
+import { planAttractionWalk, WalkPlanningError, type PlannedWalk } from './walk-planner';
+import type { Theme } from './tours';
+import type { Position } from './attractions';
+
+type Mode = 'theme' | 'nearby';
+type Start = 'gps' | 'centre' | 'west' | 'east';
+type Status = 'idle' | 'locating' | 'planning' | 'ready' | 'error';
+
+const themes: Theme[] = ['Art', 'Music', 'History', 'Sport'];
+const starts: { id: Start; label: string; pos?: Position }[] = [
+  { id: 'centre', label: 'City centre', pos: { lat: 55.8609, lon: -4.2514 } },
+  { id: 'west', label: 'West End', pos: { lat: 55.8745, lon: -4.2916 } },
+  { id: 'east', label: 'East End', pos: { lat: 55.8545, lon: -4.2372 } },
+  { id: 'gps', label: 'My location' },
+];
+const fmtKm = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
+
+export default function WalkPlanner({ entry }: { entry?: { mode: Mode; theme?: Theme } | null }) {
+  const [mode, setMode] = useState<Mode | null>(null);
+  const [theme, setTheme] = useState<Theme | null>(null);
+  const [start, setStart] = useState<Start>('gps');
+  const [radius, setRadius] = useState(2);
+  const [maxStops, setMaxStops] = useState(6);
+  const [status, setStatus] = useState<Status>('idle');
+  const [error, setError] = useState('');
+  const [plan, setPlan] = useState<PlannedWalk | null>(null);
+  const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const run = useRef(0);
+  const abort = useRef<AbortController | null>(null);
+  const mapEl = useRef<HTMLDivElement>(null);
+
+  const cancel = () => {
+    run.current++;
+    abort.current?.abort();
+    abort.current = null;
+    setStatus('idle'); setError(''); setPlan(null); setMapStatus('loading');
+  };
+  useEffect(() => () => { run.current++; abort.current?.abort(); }, []);
+  useEffect(() => {
+    if (!entry) return;
+    cancel();
+    setMode(entry.mode);
+    setTheme(entry.theme ?? null);
+  }, [entry]);
+
+  const change = (fn: () => void) => { cancel(); fn(); };
+  const ready = mode === 'nearby' || (mode === 'theme' && theme);
+
+  const go = async () => {
+    if (!ready) return;
+    cancel();
+    const id = run.current;
+    const controller = new AbortController();
+    abort.current = controller;
+    try {
+      let origin = starts.find((s) => s.id === start)?.pos;
+      if (!origin) {
+        setStatus('locating');
+        origin = await getPosition();
+        if (id !== run.current) return;
+      }
+      setStatus('planning');
+      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? theme! : 'All', radiusKm: radius, maxStops }, controller.signal);
+      if (id !== run.current) return;
+      setPlan(result); setStatus('ready');
+    } catch (e: any) {
+      if (id !== run.current || e?.name === 'AbortError') return;
+      let msg = 'Something went wrong planning this walk. Please try again.';
+      if (e instanceof WalkPlanningError) msg = e.message;
+      else if (e?.code === 1) msg = 'Location permission was declined. Nothing was saved. Pick City centre, West End or East End to plan a walk anyway.';
+      else if (typeof e?.code === 'number') msg = e.message || 'Your position could not be found. Pick a Glasgow starting point instead.';
+      setError(msg); setStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    if (!plan) return;
+    setMapStatus('loading');
+    let active = true;
+    let map: any;
+    loadLeaflet().then((L) => {
+      if (!active || !mapEl.current) return;
+      // Initialise the view before mixed vector layers create their renderers.
+      map = L.map(mapEl.current, { scrollWheelZoom: false })
+        .setView([plan.origin.lat, plan.origin.lon], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      const line = L.geoJSON(plan.geometry, { style: { color: '#183a36', weight: 5, opacity: 0.9 } }).addTo(map);
+      plan.nearby.filter((n) => !n.included).forEach((n) => L.circleMarker([n.lat, n.lon], { radius: 5, color: '#6b7e76', weight: 2, fillColor: '#e9e4d7', fillOpacity: 1 }).addTo(map).bindTooltip(`${n.name} (not on route)`));
+      L.circleMarker([plan.origin.lat, plan.origin.lon], { radius: 8, color: '#f5f2e9', weight: 3, fillColor: '#183a36', fillOpacity: 1 }).addTo(map).bindTooltip('Start');
+      plan.stops.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', html: `<div class="plan-pin">${i + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map).bindTooltip(`${i + 1}. ${s.name}`));
+      map.fitBounds(line.getBounds(), { padding: [30, 30] });
+      setMapStatus('ready');
+      setTimeout(() => map?.invalidateSize(), 100);
+    }).catch(() => { if (active) setMapStatus('error'); });
+    return () => { active = false; map?.remove(); };
+  }, [plan]);
+
+  const busy = status === 'locating' || status === 'planning';
+
+  return (
+    <section className="planner" id="planner" data-testid="section-planner">
+      <div className="eyebrow">Out in Glasgow right now?</div>
+      <h2>Plan a walk from where you are.</h2>
+      <p className="planner-lead">Choose a theme, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimized avoidable backtracking.</p>
+
+      <div className="mode-grid" role="group" aria-label="Choose how to explore">
+        <button className={`mode-card${mode === 'theme' ? ' active' : ''}`} aria-pressed={mode === 'theme'} onClick={() => change(() => setMode('theme'))} data-testid="button-mode-theme">
+          <strong>Pick a theme</strong><span>Art, music, history or sport, only the stops that fit your interest.</span>
+        </button>
+        <button className={`mode-card${mode === 'nearby' ? ' active' : ''}`} aria-pressed={mode === 'nearby'} onClick={() => change(() => setMode('nearby'))} data-testid="button-mode-nearby">
+          <strong>Explore nearby</strong><span>Every theme mixed together, whatever is closest to you.</span>
+        </button>
+      </div>
+
+      {mode && (
+        <div className="planner-form" data-testid="form-planner">
+          {mode === 'theme' && (
+            <div>
+              <span className="field-label">Theme</span>
+              <div className="chip-row">
+                {themes.map((t) => <button key={t} className={`chip${theme === t ? ' active' : ''}`} aria-pressed={theme === t} onClick={() => change(() => setTheme(t))} data-testid={`button-theme-${t.toLowerCase()}`}>{t}</button>)}
+              </div>
+            </div>
+          )}
+          <div>
+            <span className="field-label">Starting point</span>
+            <div className="chip-row">
+              {starts.map((s) => <button key={s.id} className={`chip${start === s.id ? ' active' : ''}`} aria-pressed={start === s.id} onClick={() => change(() => setStart(s.id))} data-testid={`button-start-${s.id}`}>{s.label}</button>)}
+            </div>
+          </div>
+          <div>
+            <span className="field-label">Search radius</span>
+            <div className="chip-row">
+              {[1, 2, 3, 5].map((r) => <button key={r} className={`chip${radius === r ? ' active' : ''}`} aria-pressed={radius === r} onClick={() => change(() => setRadius(r))} data-testid={`button-radius-${r}`}>{r} km</button>)}
+            </div>
+          </div>
+          <div>
+            <span className="field-label">Up to how many stops</span>
+            <div className="chip-row">
+              {[1, 2, 3, 4, 5, 6].map((n) => <button key={n} className={`chip${maxStops === n ? ' active' : ''}`} aria-pressed={maxStops === n} onClick={() => change(() => setMaxStops(n))} data-testid={`button-stops-${n}`}>{n}</button>)}
+            </div>
+          </div>
+          <div className="planner-actions">
+            <button className="button-primary" disabled={!ready || busy} onClick={go} data-testid="button-plan-route">
+              {start === 'gps' ? <LocateFixed size={16} /> : <Navigation size={16} />}
+              {status === 'locating' ? 'Finding your position…' : status === 'planning' ? 'Planning your walk…' : start === 'gps' ? 'Use my location and plan' : 'Plan my walk'}
+            </button>
+          </div>
+          {mode === 'theme' && !theme && <p className="planner-note" data-testid="text-choose-theme">Choose a theme to continue.</p>}
+          <p className="planner-note" data-testid="text-privacy">The total walk is limited to 5 km. Your location is requested only when you press the plan button with My location selected. To build the route, the start coordinates and attraction positions are sent to the independent OpenStreetMap walking service. They are never stored by this site. Walking distances and times exclude time spent at stops.</p>
+        </div>
+      )}
+
+      <div aria-live="polite">
+        {busy && <div className="planner-msg loading" data-testid="status-planner-loading">{status === 'locating' ? 'Waiting for your location permission…' : 'Checking walking distances. The public service is rate limited, so this can take a few seconds.'}</div>}
+        {status === 'error' && (
+          <div className="planner-msg" role="alert" data-testid="status-planner-error">
+            {error}
+            <div style={{ marginTop: 10 }}><button className="chip" onClick={go} data-testid="button-planner-retry">Try again</button></div>
+          </div>
+        )}
+      </div>
+
+      {plan && status === 'ready' && (
+        <div className="plan-result" data-testid="result-plan">
+          <div>
+            <div className="plan-summary" data-testid="text-plan-summary">
+              <span>{plan.stops.length} stops</span>
+              <span>{fmtKm(plan.distanceMeters)} walking</span>
+              <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>
+            </div>
+            {plan.stops.map((s, i) => (
+              <article className="plan-stop" key={s.id} data-testid={`stop-plan-${s.id}`}>
+                <div className="stop-num">{String(i + 1).padStart(2, '0')}</div>
+                <div><h4>{s.name}</h4><small>{s.theme} · {s.place}</small><p>{s.description}</p></div>
+              </article>
+            ))}
+            {plan.excludedCount > 0 && (
+              <div className="plan-others" data-testid="list-plan-others">
+                {plan.excludedCount} more nearby, not included within this walk’s stop and distance limits:
+                <ul>{plan.nearby.filter((n) => !n.included).map((n) => <li key={n.id}>{n.name}, {fmtKm(n.walkingDistanceMeters)} from start on foot</li>)}</ul>
+              </div>
+            )}
+            <p className="planner-note" data-testid="text-plan-disclaimer">The order is chosen to minimize avoidable backtracking; it does not guarantee every street is used only once. Check opening hours and access locally.</p>
+          </div>
+          <div>
+            {mapStatus === 'loading' && <p className="planner-note" role="status" data-testid="status-plan-map-loading">Loading the interactive map…</p>}
+            {mapStatus === 'error' && <p className="planner-msg" role="alert" data-testid="status-plan-map-error">The route was calculated, but the interactive map could not load. Check your connection; the ordered attraction list remains available.</p>}
+            <div className="plan-map" ref={mapEl} data-testid="map-plan" style={mapStatus === 'error' ? { display: 'none' } : undefined} />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

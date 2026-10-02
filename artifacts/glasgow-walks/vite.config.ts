@@ -11,6 +11,10 @@ const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
 export default defineConfig({
   base: normalizedBase,
   plugins: [react(), tailwindcss()],
+  esbuild: { target: 'es2022' },
+  optimizeDeps: {
+    esbuildOptions: { target: 'es2022' },
+  },
   resolve: {
     alias: {
       '@': path.resolve(process.cwd(), 'src'),
@@ -19,6 +23,7 @@ export default defineConfig({
   },
   root: process.cwd(),
   build: {
+    target: 'es2022',
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
   },
