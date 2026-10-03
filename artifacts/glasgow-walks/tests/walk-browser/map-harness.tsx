@@ -35,7 +35,7 @@ function MapHarness() {
         {mounted ? 'Hide map component' : 'Show map component'}
       </button>
       {component === 'planner' ? (
-        mounted && <WalkPlanner entry={null} categories={['History']} categoriesLoading={false}
+        mounted && <WalkPlanner entry={null} categories={['History', 'Architecture']} categoriesLoading={false}
           categoriesError="" onRetryCategories={() => {}} />
       ) : mounted ? (
         <section>

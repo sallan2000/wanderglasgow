@@ -39,14 +39,17 @@ export async function isolateMaps(page, options = {}) {
   const unexpected = [];
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  await page.addInitScript(() => {
+  await page.addInitScript(({ denyGeolocation }) => {
     window.geolocationFixture = { requests: [] };
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
-        getCurrentPosition(success, _error, options) {
+        getCurrentPosition(success, error, options) {
           geolocationFixture.requests.push({ options });
-          queueMicrotask(() => success({ coords: { latitude: 55.8642, longitude: -4.2518 } }));
+          queueMicrotask(() => {
+            if (denyGeolocation) error({ code: 1, message: 'User denied Geolocation' });
+            else success({ coords: { latitude: 55.8642, longitude: -4.2518 } });
+          });
         },
       },
     });
@@ -64,7 +67,7 @@ export async function isolateMaps(page, options = {}) {
         return super.disconnect(...args);
       }
     };
-  });
+  }, { denyGeolocation: options.denyGeolocation === true });
 
   let scriptRequests = 0;
   await page.route('**/*', async route => {
