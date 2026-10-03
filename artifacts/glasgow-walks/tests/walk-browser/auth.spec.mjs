@@ -19,6 +19,40 @@ test('admin auth sign-in and password reset omit owner setup disclosure', async 
   await expectCleanAuthScreen(page, 'Sign in');
 });
 
+test('admin auth validates a missing email and clears a rejected sign-in password', async ({ page }) => {
+  const supabaseRequests = [];
+  page.on('request', (request) => {
+    if (/supabase/i.test(request.url())) supabaseRequests.push(request.url());
+  });
+
+  await page.goto('/tests/walk-browser/auth.html?signin=reject');
+  await expectCleanAuthScreen(page, 'Sign in');
+
+  const email = page.getByTestId('input-email');
+  const password = page.getByTestId('input-password');
+  const submit = page.getByTestId('button-submit-auth');
+
+  await password.fill('fixture-password');
+  await submit.click();
+  await expect(page.getByTestId('status-auth-error')).toHaveText('Enter your email address.');
+  await expectCleanAuthScreen(page, 'Sign in');
+  await expect(password).toHaveValue('fixture-password');
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([]);
+
+  await email.fill('admin@example.invalid');
+  await submit.click();
+  await expect(page.getByTestId('status-auth-error')).toHaveText(
+    'Those details were not recognised. Check your email and password and try again.',
+  );
+  await expectCleanAuthScreen(page, 'Sign in');
+  await expect(email).toHaveValue('admin@example.invalid');
+  await expect(password).toHaveValue('');
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([
+    { email: 'admin@example.invalid' },
+  ]);
+  expect(supabaseRequests).toEqual([]);
+});
+
 test('admin auth toggle and visitor link stay usable and separated on narrow screens', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto('/tests/walk-browser/auth.html');

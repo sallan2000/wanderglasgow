@@ -1,6 +1,7 @@
 // Browser auth fixture: record auth calls without a Supabase client or network.
 type AuthCall = { email: string; redirectTo?: string };
 type PasswordCall = { password: string };
+type SignInCall = { email: string };
 
 const testSession = {
   access_token: 'fixture-access-token',
@@ -22,6 +23,7 @@ const testSession = {
 export const authFixture = {
   resetRequests: [] as AuthCall[],
   passwordUpdates: [] as PasswordCall[],
+  signInRequests: [] as SignInCall[],
 };
 
 if (typeof window !== 'undefined') {
@@ -59,7 +61,11 @@ export const supabase = {
       }
       return { error: null };
     },
-    async signInWithPassword() {
+    async signInWithPassword({ email }: { email: string; password: string }) {
+      authFixture.signInRequests.push({ email });
+      if (params().get('signin') === 'reject') {
+        return { error: { message: 'Invalid login credentials' } };
+      }
       return { error: null };
     },
     async signOut() {
