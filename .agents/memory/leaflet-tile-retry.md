@@ -15,4 +15,4 @@ The browser regression that waits to click the tile retry control can time out b
 
 **Why:** Repeated Chromium runs with intercepted tile requests reproduced the detached retry control before its click handler ran.
 
-**How to apply:** When validating background-only retries, assert the tile warning's state transitions and map/overlay lifecycle separately; make the mocked tile-event sequence deterministic before relying on the retry click.
+**How to apply:** When validating background-only retries, let the initial tile load finish before injecting a controlled tile error. Pending Leaflet load events can clear the warning between an assertion and a Playwright stability check, so activate the visible retry control as soon as it mounts. Assert the warning's state transitions and map/overlay lifecycle separately.

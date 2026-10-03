@@ -80,7 +80,7 @@ test('map library timeout removes assets and retry renders a fresh map', async (
   // fresh identical script URL with the still-held request.
   await options.releaseScript();
   await expect(page.getByTestId('walk-list-preview')).toContainText('An original cathedral story');
-  await page.getByRole('button', { name: 'Retry map', exact: true }).click();
+  await page.getByRole('button', { name: 'Retry loading Leaflet', exact: true }).click();
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
   await expect(page.getByTestId('walk-status-map-error')).toHaveCount(0);
   await expect(page.locator('script[data-leaflet]')).toHaveCount(1);
@@ -92,33 +92,76 @@ test('map stylesheet error does not poison later library retry', async ({ page }
   await open(page);
   await page.getByTestId('walk-button-preview').click();
   await expect(page.getByTestId('walk-status-map-error')).toBeVisible();
-  await page.getByRole('button', { name: 'Retry map', exact: true }).click();
+  await page.getByRole('button', { name: 'Retry loading Leaflet', exact: true }).click();
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
   await expect(page.getByTestId('walk-status-map-error')).toHaveCount(0);
   await verify();
 });
 
-test('tile error keeps pins and route visible; retry cleans up map and observer', async ({ page }) => {
-  const options = { tileErrors: true };
-  const verify = await isolate(page, options);
+test('tile retry reuses the map and later errors are reported only for active tiles', async ({ page }) => {
+  const verify = await isolate(page);
   await open(page); await preview(page); await measure(page);
-  await expect(page.getByTestId('walk-status-tile-error')).toBeVisible();
-  await expect(page.getByTestId('walk-status-map-error')).toHaveCount(0);
-  const oldTiles = await page.evaluateHandle(() => {
+  const originalMap = await page.evaluateHandle(() => window.mapFixture.live[0]);
+  const originalTiles = await page.evaluateHandle(() => {
     let tiles;
     window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });
     return tiles;
   });
-  options.tileErrors = false;
-  await page.getByRole('button', { name: 'Retry map tiles' }).click();
+  await page.evaluate(tiles => new Promise(resolve => {
+    tiles.once('load', resolve);
+    tiles.redraw();
+  }), originalTiles);
+  await expect(page.getByTestId('walk-status-tile-error')).toHaveCount(0);
+  const retryClicked = await page.evaluate(tiles => new Promise(resolve => {
+    const observer = new MutationObserver(() => checkForRetry());
+    const timeout = setTimeout(() => {
+      observer.disconnect();
+      resolve(false);
+    }, 3000);
+    const checkForRetry = () => {
+      const notice = document.querySelector('[data-testid="walk-status-tile-error"]');
+      const button = notice?.querySelector('[data-testid="button-walk-tiles-retry"]');
+      if (!notice || !button) return;
+      observer.disconnect();
+      clearTimeout(timeout);
+      const visible = notice.getClientRects().length > 0;
+      button.click();
+      resolve(visible);
+    };
+    observer.observe(document.body, { childList: true, subtree: true });
+    tiles.fire('tileerror');
+    checkForRetry();
+  }), originalTiles);
+  expect(retryClicked, 'The retry button is shown and used when tiles fail').toBe(true);
+  await expect(page.getByTestId('walk-status-map-error')).toHaveCount(0);
   await expect(page.getByTestId('walk-status-tile-error')).toHaveCount(0);
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
-  expect(await page.evaluate(() => window.mapFixture.removed)).toBe(1);
+  expect(await page.evaluate(map => window.mapFixture.live[0] === map, originalMap)).toBe(true);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.removed)).toBe(0);
   expect(await page.evaluate(() => window.observerFixture.live)).toBe(1);
-  // Old event handlers cannot report tile failures against the replacement map.
-  await page.evaluate(tiles => tiles.fire('tileerror'), oldTiles);
+
+  // The same active layer remains able to report a later background failure.
+  await page.evaluate(tiles => tiles.fire('tileerror'), originalTiles);
+  await expect(page.getByTestId('walk-status-tile-error')).toBeVisible();
+
+  // Once the preview is reopened, a detached layer cannot report errors for
+  // the replacement layer; errors from the active layer remain visible.
+  await page.getByTestId('walk-button-preview').click();
+  await expect(page.locator('.leaflet-container')).toHaveCount(0);
+  await page.getByTestId('walk-button-preview').click();
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
+  const activeTiles = await page.evaluateHandle(() => {
+    let tiles;
+    window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });
+    return tiles;
+  });
+  expect(await page.evaluate(([oldLayer, newLayer]) => oldLayer !== newLayer, [originalTiles, activeTiles])).toBe(true);
+  await page.evaluate(tiles => tiles.fire('tileerror'), originalTiles);
   await expect(page.getByTestId('walk-status-tile-error')).toHaveCount(0);
+  await page.evaluate(tiles => tiles.fire('tileerror'), activeTiles);
+  await expect(page.getByTestId('walk-status-tile-error')).toBeVisible();
   await verify();
 });
 
