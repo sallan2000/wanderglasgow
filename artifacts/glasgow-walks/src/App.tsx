@@ -101,7 +101,11 @@ function PublicApp() {
           <h1>Glasgow is<br />better <em>on foot.</em></h1>
           <p>Take the long way round. Find the stories tucked between the big sights, with a curated walk for whatever you’re curious about.</p>
           <div className="hero-actions">
-            <button className="button-primary" onClick={() => document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })} data-testid="button-plan-walk">Plan a walk from where I am <ArrowRight size={17} /></button>
+            <button className="button-primary" onClick={() => document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })} data-testid="button-plan-walk">
+              <span className="hero-cta-wide">Plan a walk from where I am</span>
+              <span className="hero-cta-compact">Plan my walk</span>
+              <ArrowRight size={17} />
+            </button>
             <button className="button-secondary" onClick={() => document.getElementById('walks')?.scrollIntoView({ behavior: 'smooth' })} data-testid="button-explore-walks">Or browse curated tours <ArrowDown size={15} /></button>
           </div>
           <div className="hero-footnote">MADE FOR WANDERING · NO APP REQUIRED</div>
