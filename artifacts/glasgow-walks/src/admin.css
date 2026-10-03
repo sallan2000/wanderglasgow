@@ -68,9 +68,10 @@ textarea.adm-in{padding:12px 14px;min-height:130px;resize:vertical;line-height:1
 .adm-auth-art h2{font:600 clamp(44px,5vw,76px)/.98 var(--app-font-serif);letter-spacing:-.06em;margin:0}
 .adm-auth-art h2 em{color:var(--orange)}
 .adm-auth-art .brand{color:var(--paper)}
-.adm-auth-form{padding:48px clamp(24px,6vw,88px);display:flex;flex-direction:column;justify-content:center;gap:18px;max-width:560px;animation:adm-in .35s both}
+.adm-auth-form{padding:48px clamp(24px,6vw,88px);display:flex;flex-direction:column;justify-content:center;gap:18px;max-width:560px;min-width:0;width:100%;animation:adm-in .35s both}
 .adm-auth-form h1{font:600 38px/1 var(--app-font-serif);letter-spacing:-.05em;margin:0}
 .adm-auth-form form{display:grid;gap:16px}
+.adm-auth :focus-visible{outline:2px solid var(--orange-strong);outline-offset:3px}
 .adm-sub{font:11px var(--app-font-mono);color:var(--ink-soft)}
 .adm-sub a{color:inherit}
 .adm-category-panel{border:1px solid var(--line);padding:24px;margin:0 0 28px;background:#fbf9f2}

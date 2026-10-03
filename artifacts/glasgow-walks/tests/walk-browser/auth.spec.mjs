@@ -53,25 +53,70 @@ test('admin auth validates a missing email and clears a rejected sign-in passwor
   expect(supabaseRequests).toEqual([]);
 });
 
-test('admin auth toggle and visitor link stay usable and separated on narrow screens', async ({ page }) => {
+test('admin auth stays keyboard accessible without horizontal overflow on narrow screens', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto('/tests/walk-browser/auth.html');
   await expectCleanAuthScreen(page, 'Sign in');
 
+  const brand = page.getByTestId('link-home');
+  const email = page.getByTestId('input-email');
+  const password = page.getByTestId('input-password');
+  const submit = page.getByTestId('button-submit-auth');
   const toggle = page.getByTestId('button-toggle-forgot');
   const visitorLink = page.getByTestId('link-visitor-site');
-  await toggle.scrollIntoViewIfNeeded();
+
+  const expectVisibleFocus = async (locator) => {
+    await expect(locator).toBeFocused();
+    await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).outlineStyle))
+      .toBe('solid');
+  };
+  const expectNoHorizontalOverflow = async () => {
+    const dimensions = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
+  };
+
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(brand);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(email);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(password);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(submit);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(toggle);
   await expect(toggle).toBeInViewport();
-  await toggle.click();
+  await expectNoHorizontalOverflow();
+
+  await page.keyboard.press('Enter');
   await expectCleanAuthScreen(page, 'Reset your password');
   await expect(toggle).toContainText('Back to sign in');
-  await toggle.scrollIntoViewIfNeeded();
-  await expect(toggle).toBeInViewport();
-  await toggle.click();
+  await expectVisibleFocus(toggle);
+  await expectNoHorizontalOverflow();
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(visitorLink);
+  await expect(visitorLink).toBeInViewport();
+
+  await page.keyboard.press('Shift+Tab');
+  await expectVisibleFocus(toggle);
+  await page.keyboard.press('Shift+Tab');
+  await expectVisibleFocus(submit);
+  await page.keyboard.press('Shift+Tab');
+  await expectVisibleFocus(email);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(submit);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(toggle);
+  await page.keyboard.press('Space');
   await expectCleanAuthScreen(page, 'Sign in');
   await expect(toggle).toContainText('Forgot your password?');
-
-  await visitorLink.scrollIntoViewIfNeeded();
+  await expectVisibleFocus(toggle);
+  await expectNoHorizontalOverflow();
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(visitorLink);
   await expect(visitorLink).toBeInViewport();
   const spacing = await page.evaluate(() => {
     const toggleBounds = document.querySelector('[data-testid="button-toggle-forgot"]').getBoundingClientRect();
