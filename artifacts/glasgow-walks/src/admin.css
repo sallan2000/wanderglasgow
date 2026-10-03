@@ -1,12 +1,6 @@
 .adm-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .adm-section-tabs { display:flex; flex-wrap:wrap; gap:10px; padding:24px clamp(16px,4vw,56px) 0; max-width:1180px; margin:auto; }
 .adm-fieldset:disabled .adm-map { pointer-events: none; }
-.adm-setup { margin-top: 24px; font-size: 13px; line-height: 1.65; }
-.adm-setup summary { cursor: pointer; font-weight: 600; }
-.adm-setup ol { padding-left: 20px; }
-.adm-setup li { margin-bottom: 12px; }
-.adm-setup a { text-decoration: underline; }
-.adm-setup code { overflow-wrap: anywhere; }
 .adm{min-height:100dvh;background:var(--paper);color:var(--ink);font-family:var(--app-font-sans)}
 .adm *:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
 .adm-top{height:68px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 clamp(16px,4vw,56px);border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:20}

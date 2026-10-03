@@ -101,18 +101,7 @@ export function SignIn({ notice }: { notice?: string }) {
       <button className="adm-btn link" style={{ justifySelf: 'start', alignSelf: 'flex-start' }} onClick={() => { setMode(mode === 'in' ? 'forgot' : 'in'); setErr(''); setOk(''); }} data-testid="button-toggle-forgot">
         {mode === 'in' ? 'Forgot your password?' : <><ArrowLeft size={14} /> Back to sign in</>}
       </button>
-      <div className="adm-sub"><a href={base} data-testid="link-visitor-site">Back to Wander Glasgow</a> · <a href={base + 'setup.sql'} data-testid="link-setup-sql">Database setup SQL</a></div>
-      <details className="adm-setup" data-testid="details-owner-setup">
-        <summary>First-time setup for the project owner</summary>
-        <ol>
-          <li>In your Supabase project, open SQL Editor. Copy the <a href={base + 'setup.sql'} target="_blank" rel="noreferrer">setup SQL</a> into a new query and run it. This creates the catalogue, seeds 27 sights once, and restricts editing to approved accounts.</li>
-          <li>Open Authentication → Users and create your administrator account with your own email and password. Confirm the account in the dashboard.</li>
-          <li>Copy the <a href={base + 'grant-admin.sql'} target="_blank" rel="noreferrer" data-testid="link-grant-admin">admin access SQL</a> into SQL Editor, replace <code>REPLACE_WITH_ADMIN_EMAIL</code> with that account’s email, then run it.</li>
-          <li>Return here and sign in. Creating an account alone does not grant editing access.</li>
-        </ol>
-        <p>Already set up the original four-category catalogue? Run the <a href={base + 'categories-upgrade.sql'} target="_blank" rel="noreferrer">category upgrade SQL</a> once to enable custom categories. Your attractions and admin access are preserved.</p>
-        <p>Only the Supabase project owner can run these setup steps. No private key or administrator password belongs in the website’s configuration.</p>
-      </details>
+      <div className="adm-sub"><a href={base} data-testid="link-visitor-site">Back to Wander Glasgow</a></div>
     </AuthFrame>
   );
 }
