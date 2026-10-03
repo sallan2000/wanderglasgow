@@ -1,4 +1,7 @@
-# Glasgow Walks
+# Wander Glasgow
+
+The public brand is Wander Glasgow. Existing internal artifact/package names, database identifiers and sign-in storage keys intentionally stay unchanged.
+**Why:** A branding rename must preserve existing URLs, attraction data and administrator sessions.
 
 A mobile-friendly, self-guided Glasgow walking-tour website with art, music, history and sport themes.
 

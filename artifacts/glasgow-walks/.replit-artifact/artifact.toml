@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Glasgow Walks"
+title = "Wander Glasgow"
 description = "A mobile-first Glasgow walking-tour website with curated themed routes, GPS-based starting points, and open mapping directions for visitors exploring the city on foot."
 version = "1.0.0"
 id = "artifacts/glasgow-walks"
