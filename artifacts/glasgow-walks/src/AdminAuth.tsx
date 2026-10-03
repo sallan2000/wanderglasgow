@@ -36,10 +36,15 @@ export function Recovery({ onDone }: { onDone: () => void }) {
     if (pw.length < 8) return setErr('Use at least 8 characters.');
     if (pw !== pw2) return setErr('The two passwords do not match.');
     setBusy(true); setErr('');
-    const { error } = await supabase.auth.updateUser({ password: pw });
-    setBusy(false);
-    if (error) return setErr('Your password could not be changed. The recovery link may have expired; request a new one.');
-    setPw(''); setPw2(''); onDone();
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) return setErr('Your password could not be changed. The recovery link may have expired; request a new one.');
+      setPw(''); setPw2(''); onDone();
+    } catch {
+      setErr('Your password could not be changed just now. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <AuthFrame>
@@ -74,9 +79,13 @@ export function SignIn({ notice }: { notice?: string }) {
       setPw('');
       if (error) setErr('Those details were not recognised. Check your email and password and try again.');
     } else {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + base + 'admin' });
-      if (error) setErr('The reset email could not be sent just now. Please try again shortly.');
-      else setOk('If that address belongs to an administrator, a reset link is on its way. Open it on this device.');
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + base + 'admin' });
+        if (error) setErr('The reset email could not be sent just now. Please try again shortly.');
+        else setOk('If that address belongs to an administrator, a reset link is on its way. Open it on this device.');
+      } catch {
+        setErr('The reset email could not be sent just now. Please try again shortly.');
+      }
     }
     setBusy(false);
   };

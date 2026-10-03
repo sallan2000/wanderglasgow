@@ -141,6 +141,23 @@ test('admin auth reset request uses the admin recovery redirect without contacti
   ]);
 });
 
+test('admin auth restores reset-email retry after a rejected request', async ({ page }) => {
+  await page.goto('/tests/walk-browser/auth.html?reset=reject-once');
+  await page.getByTestId('button-toggle-forgot').click();
+  await page.getByTestId('input-email').fill('admin@example.invalid');
+
+  const submit = page.getByTestId('button-submit-auth');
+  await submit.click();
+  await expect(page.getByTestId('status-auth-error')).toHaveText(
+    'The reset email could not be sent just now. Please try again shortly.',
+  );
+  await expect(submit).toBeEnabled();
+
+  await submit.click();
+  await expect(page.getByTestId('status-auth-ok')).toContainText('reset link is on its way');
+  await expect.poll(() => page.evaluate(() => window.authFixture.resetRequests)).toHaveLength(2);
+});
+
 test('admin auth accepts a recovery URL and moves to the admin portal after password update', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
@@ -153,6 +170,25 @@ test('admin auth accepts a recovery URL and moves to the admin portal after pass
   await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([
     { password: 'new-fixture-password' },
   ]);
+});
+
+test('admin auth restores password-update retry after a rejected request', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html?update=reject-once#access_token=fixture&type=recovery');
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+  await page.getByTestId('input-new-password').fill('new-fixture-password');
+  await page.getByTestId('input-confirm-password').fill('new-fixture-password');
+
+  const submit = page.getByTestId('button-save-password');
+  await submit.click();
+  await expect(page.getByTestId('status-recovery-error')).toHaveText(
+    'Your password could not be changed just now. Check your connection and try again.',
+  );
+  await expect(submit).toBeEnabled();
+
+  await submit.click();
+  await expect(page.getByTestId('status-auth-notice')).toHaveText('Password updated.');
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toHaveLength(2);
 });
 
 test('admin auth opens recovery from PASSWORD_RECOVERY after the URL marker is gone', async ({ page }) => {

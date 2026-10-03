@@ -60,10 +60,16 @@ export const supabase = {
     },
     async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
       authFixture.resetRequests.push({ email, redirectTo: options?.redirectTo });
+      if (params().get('reset') === 'reject-once' && authFixture.resetRequests.length === 1) {
+        throw new Error('Network request failed');
+      }
       return { error: null };
     },
     async updateUser({ password }: { password: string }) {
       authFixture.passwordUpdates.push({ password });
+      if (params().get('update') === 'reject-once' && authFixture.passwordUpdates.length === 1) {
+        throw new Error('Network request failed');
+      }
       if (params().get('update') === 'expired') {
         return { error: { message: 'Invalid or expired recovery link' } };
       }
