@@ -2,7 +2,7 @@ import { attractions, distanceKm, type Attraction, type Position } from './attra
 import type { Theme } from './tours';
 
 export type PlannerOptions = {
-  theme: Theme | 'All';
+  theme: Theme | Theme[] | 'All';
   radiusKm: number;
   maxStops: number;
   maxWalkKm?: number;
@@ -10,7 +10,7 @@ export type PlannerOptions = {
 export type NearbyAttraction = Attraction & { walkingDistanceMeters: number; included: boolean };
 export type PlannedWalk = {
   origin: Position;
-  theme: Theme | 'All';
+  theme: Theme | Theme[] | 'All';
   stops: Attraction[];
   nearby: NearbyAttraction[];
   distanceMeters: number;
@@ -120,23 +120,29 @@ export async function planAttractionWalk(
       origin.lat < -90 || origin.lat > 90 || origin.lon < -180 || origin.lon > 180) {
     throw new WalkPlanningError('Choose a valid starting location.', 'location');
   }
+  // A selection matches ANY selected category, never categories outside that set.
+  // Retain single-category inputs for existing callers; only scalar 'All' is unrestricted.
+  const selectedThemes = options.theme === 'All' ? null :
+    typeof options.theme === 'string' ? [options.theme] : options.theme;
   if (![1, 2, 3, 5].includes(options.radiusKm) || !Number.isInteger(options.maxStops) ||
       options.maxStops < 1 || options.maxStops > 6 ||
-      typeof options.theme !== 'string' || !options.theme.trim() || options.theme.length > 40) {
-    throw new WalkPlanningError('Choose a valid category, radius and number of stops.', 'location');
+       (selectedThemes !== null && (!Array.isArray(selectedThemes) || !selectedThemes.length ||
+         selectedThemes.some(theme => typeof theme !== 'string' || !theme.trim() || theme.length > 40)))) {
+    throw new WalkPlanningError('Choose at least one valid category, a radius and number of stops.', 'location');
   }
   const maxWalkKm = options.maxWalkKm ?? 5;
   if (!Number.isFinite(maxWalkKm) || maxWalkKm <= 0 || maxWalkKm > 15) {
     throw new WalkPlanningError('Choose a walking limit between zero and 15 km.', 'location');
   }
+  const categoryFilter = selectedThemes === null ? null : new Set(selectedThemes);
   const candidates = catalogue
-    .filter(item => options.theme === 'All' || item.theme === options.theme)
+    .filter(item => categoryFilter === null || categoryFilter.has(item.theme))
     .map(item => ({ item, distance: distanceKm(origin, item) }))
     .filter(entry => entry.distance <= options.radiusKm)
     .sort((a, b) => a.distance - b.distance)
     .slice(0, 12).map(entry => entry.item);
   if (!candidates.length) throw new WalkPlanningError(
-    'No attractions match this category near your starting point. Try all categories, a wider radius, or another Glasgow start.', 'empty');
+    'No attractions match your selected categories near your starting point. Try different categories, a wider radius, or another Glasgow start.', 'empty');
   const coordinates = [origin, ...candidates].map(point => `${point.lon},${point.lat}`).join(';');
   const table = await routingJson(
     `https://routing.openstreetmap.de/routed-foot/table/v1/foot/${coordinates}?annotations=distance,duration`, signal);
@@ -169,7 +175,7 @@ export async function planAttractionWalk(
     'The final walking route exceeded the distance limit. Try fewer stops or a closer start.', 'service');
   const selected = new Set(stops.map(stop => stop.id));
   return {
-    origin, theme: options.theme, stops,
+    origin, theme: Array.isArray(options.theme) ? [...options.theme] : options.theme, stops,
     nearby: reachable.map(({ item, distance }) => ({ ...item, walkingDistanceMeters: distance, included: selected.has(item.id) })),
     distanceMeters: route.distance, durationSeconds: route.duration, geometry: route.geometry,
     excludedCount: reachable.length - stops.length,

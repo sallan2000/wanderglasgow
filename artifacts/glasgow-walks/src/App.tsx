@@ -126,7 +126,7 @@ function PublicApp() {
         categoriesError={categoryList.error} onRetryCategories={() => void categoryList.reload()} />
 
       <div className="intro-strip">
-        <span>01 / Pick a category</span>
+        <span>01 / Pick categories</span>
         <strong>Follow your interests and discover another side of Glasgow.</strong>
         <span>02 / Take a turn</span>
       </div>

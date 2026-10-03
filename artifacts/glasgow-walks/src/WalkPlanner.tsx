@@ -28,7 +28,7 @@ type Props = {
 
 export default function WalkPlanner({ entry, categories, categoriesLoading, categoriesError, onRetryCategories }: Props) {
   const [mode, setMode] = useState<Mode | null>(null);
-  const [theme, setTheme] = useState<Theme | null>(null);
+  const [themes, setThemes] = useState<Theme[]>([]);
   const [start, setStart] = useState<Start>('gps');
   const [radius, setRadius] = useState(2);
   const [maxStops, setMaxStops] = useState(6);
@@ -52,11 +52,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     if (!entry) return;
     cancel();
     setMode(entry.mode);
-    setTheme(entry.theme ?? null);
+    setThemes(entry.theme ? [entry.theme] : []);
   }, [entry]);
 
   const change = (fn: () => void) => { cancel(); fn(); };
-  const ready = mode === 'nearby' || (mode === 'theme' && theme && !categoriesLoading && !categoriesError && categories.includes(theme));
+  const ready = mode === 'nearby' || (mode === 'theme' && themes.length > 0 && !categoriesLoading && !categoriesError && themes.every(theme => categories.includes(theme)));
 
   const go = async () => {
     if (!ready) return;
@@ -75,7 +75,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
       const catalogue = await loadPublicCatalogue(controller.signal);
       if (id !== run.current) return;
       setCatalogueNotice(catalogue.notice ?? '');
-      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? theme! : 'All', radiusKm: radius, maxStops }, controller.signal, catalogue.attractions);
+      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? themes : 'All', radiusKm: radius, maxStops }, controller.signal, catalogue.attractions);
       if (id !== run.current) return;
       setPlan(result); setStatus('ready');
     } catch (e: any) {
@@ -117,11 +117,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     <section className="planner" id="planner" data-testid="section-planner">
       <div className="eyebrow">Out in Glasgow right now?</div>
       <h2>Plan a walk from where you are.</h2>
-      <p className="planner-lead">Choose a category, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimized avoidable backtracking.</p>
+      <p className="planner-lead">Choose one or more categories, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimized avoidable backtracking.</p>
 
       <div className="mode-grid" role="group" aria-label="Choose how to explore">
         <button className={`mode-card${mode === 'theme' ? ' active' : ''}`} aria-pressed={mode === 'theme'} onClick={() => change(() => setMode('theme'))} data-testid="button-mode-theme">
-          <strong>Pick a category</strong><span>Choose your interest and visit only the stops that fit.</span>
+          <strong>Pick categories</strong><span>Combine your interests and visit only stops in your selected categories.</span>
         </button>
         <button className={`mode-card${mode === 'nearby' ? ' active' : ''}`} aria-pressed={mode === 'nearby'} onClick={() => change(() => setMode('nearby'))} data-testid="button-mode-nearby">
           <strong>Explore nearby</strong><span>Every category mixed together, whatever is closest to you.</span>
@@ -132,10 +132,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
         <div className="planner-form" data-testid="form-planner">
           {mode === 'theme' && (
             <div>
-              <span className="field-label">Category</span>
-              <div className="chip-row">
-                {categories.map((t) => <button key={t} className={`chip${theme === t ? ' active' : ''}`} aria-pressed={theme === t} onClick={() => change(() => setTheme(t))} data-testid={`button-theme-${t.toLowerCase()}`}>{t}</button>)}
+              <span className="field-label" id="planner-category-label">Categories · select one or more</span>
+              <div className="chip-row" role="group" aria-labelledby="planner-category-label" aria-describedby="planner-category-help">
+                {categories.map((t) => <button key={t} className={`chip${themes.includes(t) ? ' active' : ''}`} aria-pressed={themes.includes(t)} onClick={() => change(() => setThemes(previous => previous.includes(t) ? previous.filter(theme => theme !== t) : [...previous, t]))} data-testid={`button-theme-${t.toLowerCase()}`}>{t}</button>)}
               </div>
+              <p className="planner-note" id="planner-category-help">Tap a category to select or deselect it. Only attractions in your selected categories will be included.</p>
               {categoriesLoading && <p className="planner-note" role="status">Loading categories…</p>}
               {categoriesError && <div className="planner-msg" role="alert">{categoriesError} <button className="chip" onClick={onRetryCategories}>Try again</button></div>}
               {!categoriesLoading && !categoriesError && categories.length === 0 && <p className="planner-note">No categories are available yet. Try Explore nearby instead.</p>}
@@ -165,7 +166,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               {status === 'locating' ? 'Finding your position…' : status === 'planning' ? 'Planning your walk…' : start === 'gps' ? 'Use my location and plan' : 'Plan my walk'}
             </button>
           </div>
-          {mode === 'theme' && !theme && <p className="planner-note" data-testid="text-choose-theme">Choose a category to continue.</p>}
+          {mode === 'theme' && themes.length === 0 && <p className="planner-note" data-testid="text-choose-theme">Choose at least one category to continue.</p>}
           <p className="planner-note" data-testid="text-privacy">The total walk is limited to 5 km. Your location is requested only when you press the plan button with My location selected. To build the route, the start coordinates and attraction positions are sent to the independent OpenStreetMap walking service. They are never stored by this site. Walking distances and times exclude time spent at stops.</p>
         </div>
       )}
@@ -185,6 +186,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
         <div className="plan-result" data-testid="result-plan">
           <div>
             <div className="plan-summary" data-testid="text-plan-summary">
+              <span>{Array.isArray(plan.theme) ? `Categories: ${plan.theme.join(', ')}` : plan.theme === 'All' ? 'All categories' : `Category: ${plan.theme}`}</span>
               <span>{plan.stops.length} stops</span>
               <span>{fmtKm(plan.distanceMeters)} walking</span>
               <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>

@@ -55,13 +55,14 @@ try {
   assert.equal(findEfficientOrder([[0, null], [20, 0]], 1, 100).order.length, 0);
 
   const originalFetch = globalThis.fetch;
-  let requests = 0, failService = false;
+  let requests = 0, failService = false, lastTableCoordinates = [];
   globalThis.fetch = async url => {
     requests++;
     if (failService) return new Response('Unavailable', { status: 503 });
     const coordinates = new URL(url).pathname.split('/').at(-1).split(';')
       .map(point => point.split(',').map(Number));
     if (String(url).includes('/table/')) {
+      lastTableCoordinates = coordinates;
       const distances = coordinates.map((_, from) => coordinates.map((__, to) =>
         from === to ? 0 : from === 0 ? to === 1 ? null : to === coordinates.length - 1 ? 5000 : 200 + to * 40 : 80));
       return Response.json({ code: 'Ok', distances });
@@ -80,6 +81,33 @@ try {
     assert.equal(mixed.distanceMeters, 1200, 'Use returned route metrics');
     const themed = await planAttractionWalk(origin, { theme: 'History', radiusKm: 2, maxStops: 3 });
     assert(themed.stops.length > 0 && themed.stops.every(item => item.theme === 'History'));
+    const unionCatalogue = ['History', 'Art', 'Music', 'Sport', 'Art', 'Music', 'Art', 'Music'].map((theme, i) => ({
+      id: `union-${i}`, name: `Selected-category sight ${i}`, description: 'Category filtering check.',
+      place: 'Glasgow', theme, lat: origin.lat + (i + 1) * .0001, lon: origin.lon,
+    }));
+    const combined = await planAttractionWalk(origin, { theme: ['Music', 'Art', 'Art'], radiusKm: 2, maxStops: 3 }, undefined, unionCatalogue);
+    assert(combined.stops.some(item => item.theme === 'Art') && combined.stops.some(item => item.theme === 'Music'), 'Music and Art can both appear on one walk');
+    assert(combined.stops.every(item => ['Music', 'Art'].includes(item.theme)), 'Non-selected categories never become route stops');
+    assert(combined.nearby.every(item => ['Music', 'Art'].includes(item.theme)), 'Non-selected categories are excluded from nearby suggestions and map markers');
+    assert.equal(new Set(combined.stops.map(item => item.id)).size, combined.stops.length, 'Repeated categories do not duplicate stops');
+    assert.equal(lastTableCoordinates.length, 7, 'Only the six matching attractions and origin are sent for routing');
+    assert(lastTableCoordinates.slice(1).every(([lon, lat]) => unionCatalogue.some(item =>
+      ['Art', 'Music'].includes(item.theme) && item.lon === lon && item.lat === lat)), 'Routing requests exclude History and Sport coordinates');
+    assert.equal(combined.excludedCount, combined.nearby.length - combined.stops.length, 'Excluded count only includes matching nearby attractions');
+    const artOnly = await planAttractionWalk(origin, { theme: ['Art'], radiusKm: 2, maxStops: 3 }, undefined, unionCatalogue);
+    assert(artOnly.stops.length > 0 && artOnly.nearby.every(item => item.theme === 'Art'), 'Deselecting Music leaves only Art attractions');
+    const customUnionCatalogue = unionCatalogue.map(item => ({ ...item, theme: item.theme === 'Music' ? 'Food & drink' : item.theme }));
+    const customCombined = await planAttractionWalk(origin, { theme: ['Art', 'Food & drink'], radiusKm: 2, maxStops: 3 }, undefined, customUnionCatalogue);
+    assert(customCombined.stops.some(item => item.theme === 'Food & drink') && customCombined.stops.some(item => item.theme === 'Art'), 'New custom categories combine with existing ones');
+    assert(customCombined.nearby.every(item => ['Art', 'Food & drink'].includes(item.theme)));
+    const beforeInvalidSelection = requests;
+    for (const theme of [[], [''], ['Art', ''], ['Art', null]]) {
+      await assert.rejects(planAttractionWalk(origin, { theme, radiusKm: 2, maxStops: 3 }, undefined, unionCatalogue),
+        error => error.kind === 'location', 'Empty or invalid category selections never mean all categories');
+    }
+    await assert.rejects(planAttractionWalk(origin, { theme: ['Nature', 'Food & drink'], radiusKm: 2, maxStops: 3 }, undefined, unionCatalogue),
+      error => error.kind === 'empty', 'No matches never falls back to unselected categories');
+    assert.equal(requests, beforeInvalidSelection, 'Empty, invalid and unmatched selections make no routing requests');
     const liveCatalogue = Array.from({ length: 4 }, (_, i) => ({
       id: `admin-added-${i}`, name: `Admin-added sight ${i}`, description: 'An administrator description.',
       place: 'Glasgow', theme: 'Art', lat: origin.lat + i * .0001, lon: origin.lon,
@@ -113,7 +141,7 @@ try {
   } finally {
     globalThis.fetch = originalFetch;
   }
-  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, original/custom category filtering, walking radius, cancellation and service errors.`);
+  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, single/multiple/custom category filtering, deselection, empty selections, walking radius, cancellation and service errors.`);
   if (process.argv.includes('--live')) {
     const walk = await planAttractionWalk({ lat: 55.8605, lon: -4.2494 },
       { theme: 'All', radiusKm: 2, maxStops: 6 });
