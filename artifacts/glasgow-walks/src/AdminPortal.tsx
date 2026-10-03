@@ -106,6 +106,7 @@ export default function AdminPortal() {
           {signOutBtn}
         </div>
       </header>
+      {notice && <div className="adm-msg ok" role="status" data-testid="status-auth-notice">{notice}</div>}
       {err && <div style={{ padding: '16px clamp(16px,4vw,56px) 0' }}>{err}</div>}
       <nav className="adm-section-tabs" aria-label="Administration sections">
         <button className={`adm-btn${section === 'attractions' ? ' pri' : ''}`} aria-pressed={section === 'attractions'} onClick={() => setSection('attractions')} data-testid="admin-tab-attractions">Attractions</button>

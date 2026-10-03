@@ -17,6 +17,10 @@ const server = await createServer({
       resolveId(id, importer) {
         if (importer?.endsWith('/src/AdminAuth.tsx') && id === './attraction-store')
           return resolve(fixtures, 'auth-transport.ts');
+        if (importer?.endsWith('/src/AdminPortal.tsx') && id === './attraction-store')
+          return resolve(fixtures, 'auth-transport.ts');
+        if (importer?.endsWith('/src/AdminPortal.tsx') && (id === './AdminManager' || id === './AdminWalks'))
+          return resolve(fixtures, 'portal-stub.tsx');
         if (importer?.endsWith('/src/AdminWalkEditor.tsx') &&
             (id === './walk-store' || id === './attraction-store'))
           return resolve(fixtures, 'transport.ts');
