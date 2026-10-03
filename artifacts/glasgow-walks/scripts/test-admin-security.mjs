@@ -36,6 +36,7 @@ try {
   await db.exec((await readFile('supabase/grant-admin.sql', 'utf8')).replace('REPLACE_WITH_ADMIN_EMAIL', 'owner@example.invalid'));
   // Simulate the already-installed, four-category schema and exercise its real upgrade.
   await db.exec(`
+    alter table public.glasgow_curated_walks drop constraint glasgow_curated_walks_theme_fkey;
     alter table public.glasgow_attractions drop constraint glasgow_attractions_theme_fkey;
     drop table public.glasgow_attraction_categories;
     alter table public.glasgow_attractions add constraint glasgow_attractions_theme_check
@@ -48,6 +49,12 @@ try {
   checks++;
   await db.exec(upgrade);
   check((await rows('select * from public.glasgow_attraction_categories')).length === 4, 'Category upgrade can be safely re-run');
+  const walkUpgrade = await readFile('public/curated-walks-upgrade.sql', 'utf8');
+  const originalWalks = await rows('select * from public.glasgow_curated_walks order by id');
+  await db.exec(walkUpgrade);
+  await db.exec(walkUpgrade);
+  assert.deepEqual(await rows('select * from public.glasgow_curated_walks order by id'), originalWalks);
+  checks++;
   await as('anon');
   check((await rows('select * from public.glasgow_attractions')).length === 27, 'Anonymous visitors read the seeded catalogue');
   check((await rows('select public.is_attraction_admin() as allowed'))[0].allowed === false, 'Anonymous identity is not admin');
@@ -58,6 +65,10 @@ try {
   await denied("delete from public.glasgow_attractions");
   check((await rows('select name from public.glasgow_attraction_categories')).length === 4, 'Visitors can read category choices');
   await denied("insert into public.glasgow_attraction_categories (name) values ('Forged category')");
+  check((await rows('select * from public.glasgow_curated_walks')).length === 8, 'Original curated walks are preserved and publicly visible');
+  await denied("insert into public.glasgow_curated_walks (id,title,theme) values ('forged-walk','Forged walk','Art')");
+  await denied("update public.glasgow_curated_walks set title='Forged title'");
+  await denied("delete from public.glasgow_curated_walks");
 
   await as('authenticated', ordinary);
   check((await rows('select public.is_attraction_admin() as allowed'))[0].allowed === false, 'Ordinary signed-in account is not admin');
@@ -68,8 +79,48 @@ try {
   check((await rows('select public.is_attraction_admin() as allowed'))[0].allowed === false, 'Self-supplied metadata cannot grant admin rights');
   check((await rows("update public.glasgow_attractions set name = 'Unauthorised edit' returning id")).length === 0, 'Non-admin update matches no editable rows');
   check((await rows('delete from public.glasgow_attractions returning id')).length === 0, 'Non-admin delete matches no editable rows');
+  await denied("insert into public.glasgow_curated_walks (id,title,theme) values ('forged-walk','Forged walk','Art')");
+  check((await rows("update public.glasgow_curated_walks set title='Unauthorised change' returning id")).length === 0, 'Non-admin cannot update curated walks');
+  check((await rows('delete from public.glasgow_curated_walks returning id')).length === 0, 'Non-admin cannot delete curated walks');
 
   await as('authenticated', admin);
+  const snapshotStops = originalWalks[0].stops.slice(0, 2);
+  await db.query("insert into public.glasgow_curated_walks (id,title,subtitle,theme,stops) values ($1,$2,$3,$4,$5::jsonb)",
+    ['test-walk', 'Test curated walk', 'An original description of this curated walk.', 'Art', JSON.stringify(snapshotStops)]);
+  const draftWalk = (await rows("select * from public.glasgow_curated_walks where id='test-walk'"))[0];
+  check(draftWalk.published === false && draftWalk.stops.length === 2, 'Admin can save an ordered draft walk');
+  await as('anon');
+  check((await rows("select id from public.glasgow_curated_walks where id='test-walk'")).length === 0, 'Draft curated walks are hidden from anonymous visitors');
+  await as('authenticated', ordinary);
+  check((await rows("select id from public.glasgow_curated_walks where id='test-walk'")).length === 0, 'Draft curated walks are hidden from ordinary signed-in users');
+  await as('authenticated', admin);
+  await denied("update public.glasgow_curated_walks set published=true where id='test-walk'", '23514');
+  await denied("update public.glasgow_curated_walks set stops='{}'::jsonb where id='test-walk'", '23514');
+  await denied("update public.glasgow_curated_walks set stops='[{\"name\":\"Stop\",\"story\":\"A sufficiently long story\",\"place\":\"\",\"lat\":91,\"lon\":0}]'::jsonb where id='test-walk'", '23514');
+  await denied("update public.glasgow_curated_walks set stops='[{\"name\":\"Stop\",\"story\":\"A sufficiently long story\",\"place\":\"\",\"lat\":null,\"lon\":0}]'::jsonb where id='test-walk'", '23514');
+  await denied("update public.glasgow_curated_walks set distance_km='NaN' where id='test-walk'", '23514');
+  await denied("update public.glasgow_curated_walks set theme='No such category' where id='test-walk'", '23503');
+  const publishedWalk = await rows("update public.glasgow_curated_walks set published=true,distance_km=2.1,minutes=29 where id='test-walk' and updated_at=$1 returning *", [draftWalk.updated_at]);
+  check(publishedWalk.length === 1, 'Publishing with valid walking metrics persists');
+  check((await rows("update public.glasgow_curated_walks set title='Stale edit' where id='test-walk' and updated_at=$1 returning id", [draftWalk.updated_at])).length === 0, 'Stale curated-walk edits cannot overwrite a newer version');
+  await as('anon');
+  const visibleWalk = (await rows("select * from public.glasgow_curated_walks where id='test-walk'"))[0];
+  assert.deepEqual(visibleWalk.stops, snapshotStops); checks++;
+  check(visibleWalk.distance_km === 2.1 && visibleWalk.minutes === 29, 'A separate public session sees published walking metrics');
+  await as('authenticated', admin);
+  await db.query("update public.glasgow_curated_walks set stops=$1::jsonb where id='test-walk'", [JSON.stringify([...snapshotStops].reverse())]);
+  assert.deepEqual((await rows("select stops from public.glasgow_curated_walks where id='test-walk'"))[0].stops, [...snapshotStops].reverse()); checks++;
+  const beforeSourceChange = (await rows("select stops from public.glasgow_curated_walks where id='test-walk'"))[0].stops;
+  await db.query("update public.glasgow_attractions set description='A new attraction description that does not rewrite an existing curated walk.' where name=$1", [snapshotStops[0].name]);
+  assert.deepEqual((await rows("select stops from public.glasgow_curated_walks where id='test-walk'"))[0].stops, beforeSourceChange); checks++;
+  await db.exec("update public.glasgow_curated_walks set published=false where id='test-walk'");
+  await as('anon');
+  check((await rows("select id from public.glasgow_curated_walks where id='test-walk'")).length === 0, 'Unpublishing removes a curated walk from visitors');
+  await as('authenticated', admin);
+  const attractionCount = (await rows('select count(*)::integer as n from public.glasgow_attractions'))[0].n;
+  await db.exec("delete from public.glasgow_curated_walks where id='test-walk'; delete from public.glasgow_curated_walks where id='art-mile'");
+  check((await rows('select count(*)::integer as n from public.glasgow_attractions'))[0].n === attractionCount, 'Deleting a curated walk never deletes source attractions');
+  await db.exec("update public.glasgow_curated_walks set subtitle='An edited original walk description that must survive repeated upgrades.' where id='kelvingrove-culture'");
   check((await rows('select public.is_attraction_admin() as allowed'))[0].allowed === true, 'Explicitly granted admin recognised');
   await db.exec("insert into public.glasgow_attraction_categories (name) values ('Food & drink')");
   check((await rows("select name from public.glasgow_attraction_categories where name='Food & drink'")).length === 1, 'Admin category creation persists');
@@ -113,10 +164,14 @@ try {
   await db.exec(setup);
   check((await rows("select id from public.glasgow_attractions where id='celtic-park'")).length === 0, 'Re-running setup never resurrects deleted seed entries');
   check((await rows("select theme from public.glasgow_attractions where id='custom-category-stop'"))[0].theme === 'Food & drink', 'Re-running setup preserves custom categories and their attractions');
+  await db.exec(walkUpgrade);
+  check((await rows("select id from public.glasgow_curated_walks where id='art-mile'")).length === 0, 'Re-running upgrades never resurrects deleted original walks');
+  check((await rows("select subtitle from public.glasgow_curated_walks where id='kelvingrove-culture'"))[0].subtitle.startsWith('An edited'), 'Re-running upgrades preserves edits to original walks');
   await db.exec(`delete from glasgow_walks_private.admin_users where user_id='${admin}'`);
   await as('authenticated', admin);
   check((await rows('select public.is_attraction_admin() as allowed'))[0].allowed === false, 'Revocation takes immediate effect');
   await denied(insert);
   await denied("insert into public.glasgow_attraction_categories (name) values ('Revoked category')");
+  await denied("insert into public.glasgow_curated_walks (id,title,theme) values ('revoked-walk','Revoked walk','Art')");
   console.log(`Admin database checks passed: ${checks} actual PostgreSQL permission, validation, persistence, conflict and seed-idempotency checks. No remote database was modified.`);
 } finally { await db.close(); }

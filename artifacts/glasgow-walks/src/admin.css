@@ -1,4 +1,5 @@
 .adm-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.adm-section-tabs { display:flex; flex-wrap:wrap; gap:10px; padding:24px clamp(16px,4vw,56px) 0; max-width:1180px; margin:auto; }
 .adm-fieldset:disabled .adm-map { pointer-events: none; }
 .adm-setup { margin-top: 24px; font-size: 13px; line-height: 1.65; }
 .adm-setup summary { cursor: pointer; font-weight: 600; }

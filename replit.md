@@ -10,7 +10,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - `pnpm --filter @workspace/glasgow-walks run dev` — run the website.
 - `pnpm --filter @workspace/glasgow-walks run typecheck` — check the app.
 - `pnpm --filter @workspace/glasgow-walks run build` — produce static files in `artifacts/glasgow-walks/dist/public`.
-- Visitor editorial tours are static; shared attraction management uses external Supabase. Build settings: `VITE_SUPABASE_URL` and public `VITE_SUPABASE_PUBLISHABLE_KEY`. No product API server or Replit database. Geolocation requires HTTPS.
+- Attraction and curated-walk management use external Supabase. The original walks are one-time seeds and an explicitly labelled fallback only while shared walk storage is unconfigured/not installed. Build settings: `VITE_SUPABASE_URL` and public `VITE_SUPABASE_PUBLISHABLE_KEY`. No product API server or Replit database. Geolocation requires HTTPS.
 - See `artifacts/glasgow-walks/README.md` for independent-host build instructions and external mapping-service assumptions.
 
 ## Stack
@@ -22,7 +22,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 ## Where things live
 
 - Website: `artifacts/glasgow-walks`.
-- Curated tours and stops: `src/tours.ts`.
+- Original curated-walk seeds: `src/tours.ts`. Shared walk storage: `src/walk-store.ts`. Administration: `src/AdminWalks.tsx` and `src/AdminWalkEditor.tsx`.
 - Supabase client and shared catalogue: `src/attraction-store.ts`. Admin portal: `/admin`.
 - Database installation: generated `public/setup.sql`; first-admin authorisation: `supabase/grant-admin.sql`. These must be run by the Supabase project owner.
 - Interface, geolocation and map routing: `src/App.tsx`.
@@ -33,15 +33,18 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - Stops are sightseeing viewpoints, not promises of admission or current opening. Avoid descriptions that assume closed/restoring venues can be entered.
 - Public mapping endpoints suit an initial small-scale version, not an unlimited-traffic availability promise. Review service policies before public launch.
 - Admin sign-in and shared attraction storage use a user-owned Supabase project, accessed directly through standard APIs. Enforce editing permissions with database row-level security, not just hidden admin controls.
+- Curated stops are ordered editorial snapshots, not live references to attraction rows.
+- **Why:** Editing, drafting or deleting an attraction must not silently rewrite an authored walk, its narrative, its stop order or its measured walking metrics. Administrators update or unpublish curated walks explicitly.
 - **Why:** The user approved choosing an independent setup; one provider for authentication and storage avoids extra service accounts while retaining hosting independence.
 
 ## Product
 
-- Eight themed Glasgow walks across art, music, history and sport.
+- Eight original Glasgow walks across art, music, history and sport; administrators can create further curated walks, edit originals, save drafts, publish/unpublish and delete. Visitor lists, counts and nearby recommendations read published Supabase walks and refresh on focus/every minute.
 - Nearby-start recommendations after explicit GPS permission.
 - Visitors choose one or more categories, or all nearby attractions. A category-selected walk includes only attractions matching any selected category; non-selected categories are excluded from both the route and nearby suggestions. Order those attractions using actual pedestrian-network distances, with bounded detours and no forced return to the start.
 - The “5 km+” search is capped at 10 km on foot and allows a total walk up to 15 km. The 1–5 km search options retain their 5 km total-walk limit. Longer searches also include nearer attractions.
 - Administrators add/edit/delete attractions with descriptions, exact map coordinates, one best-fitting theme, and draft/published status. Both dynamic visitor modes refetch published attractions whenever a walk is planned.
+- Curated walks use 2–30 ordered stops when published, copied from published attractions with editable narratives. Measure the selected order using the pedestrian service before publishing. A one-time owner-run `curated-walks-upgrade.sql` enables storage without resetting attraction edits or administrator access.
 - Interactive stop maps and true foot-network routes, with a no-GPS route-from-tour-start option.
 
 ## User preferences

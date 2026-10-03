@@ -5,6 +5,7 @@ import './admin.css';
 import { supabase, checkAdmin, CatalogueError, initialPasswordRecovery } from './attraction-store';
 import { AuthFrame, Brand, Recovery, SignIn } from './AdminAuth';
 import AdminManager from './AdminManager';
+import AdminWalks from './AdminWalks';
 
 type Gate = { state: 'idle' | 'checking' | 'admin' | 'denied' | 'error'; userId?: string; message?: string; setup?: boolean };
 const base = import.meta.env.BASE_URL;
@@ -28,6 +29,7 @@ export default function AdminPortal() {
   const [retry, setRetry] = useState(0);
   const [outErr, setOutErr] = useState('');
   const [notice, setNotice] = useState('');
+  const [section, setSection] = useState<'attractions' | 'walks'>('attractions');
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
@@ -85,7 +87,7 @@ export default function AdminPortal() {
   );
   if (gate.state === 'denied') return (
     <div className="adm"><Message title="Access denied" testid="status-denied">
-      <p style={{ lineHeight: 1.6 }}>Signed in as <strong data-testid="text-denied-email">{session.user.email}</strong>. This account is not authorised to manage attractions.</p>
+      <p style={{ lineHeight: 1.6 }}>Signed in as <strong data-testid="text-denied-email">{session.user.email}</strong>. This account is not authorised to manage attractions or curated walks.</p>
       {err}<div className="adm-acts">{signOutBtn}<a className="adm-btn" href={base}>Visit Wander Glasgow</a></div></Message></div>
   );
   if (gate.state === 'error') return (
@@ -105,7 +107,11 @@ export default function AdminPortal() {
         </div>
       </header>
       {err && <div style={{ padding: '16px clamp(16px,4vw,56px) 0' }}>{err}</div>}
-      <AdminManager key={userId} onSignOut={signOut} />
+      <nav className="adm-section-tabs" aria-label="Administration sections">
+        <button className={`adm-btn${section === 'attractions' ? ' pri' : ''}`} aria-pressed={section === 'attractions'} onClick={() => setSection('attractions')} data-testid="admin-tab-attractions">Attractions</button>
+        <button className={`adm-btn${section === 'walks' ? ' pri' : ''}`} aria-pressed={section === 'walks'} onClick={() => setSection('walks')} data-testid="admin-tab-walks">Curated walks</button>
+      </nav>
+      {section === 'attractions' ? <AdminManager key={userId} onSignOut={signOut} /> : <div className="adm-main"><AdminWalks key={userId} /></div>}
     </div>
   );
 }

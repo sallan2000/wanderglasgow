@@ -3,11 +3,12 @@ import { ArrowDown, ArrowLeft, ArrowRight, Clock3, LocateFixed, MapPin, Navigati
 import { loadLeaflet, getPosition } from './browser-helpers';
 import WalkPlanner from './WalkPlanner';
 import AdminPortal from './AdminPortal';
-import { tours, type Tour, type Theme } from './tours';
+import { type Tour, type Theme } from './tours';
 import { useAttractionCategories } from './hooks/use-attraction-categories';
+import { useCuratedWalks } from './hooks/use-curated-walks';
 
 
-const themeCount = (theme: Theme) => {
+const themeCount = (theme: Theme, tours: Tour[]) => {
   const count = tours.filter(tour => tour.theme === theme).length;
   return count ? `${String(count).padStart(2, '0')} CURATED WALKS` : 'PLAN YOUR WALK';
 };
@@ -33,6 +34,10 @@ function locationMessage(status: GeoStatus, message: string) {
 
 function PublicApp() {
   const categoryList = useAttractionCategories();
+  const curated = useCuratedWalks();
+  const tours = curated.walks;
+  const toursRef = useRef(tours);
+  toursRef.current = tours;
   const [activeTheme, setActiveTheme] = useState<Theme | 'All'>('All');
   const [plannerEntry, setPlannerEntry] = useState<{ mode: 'theme' | 'nearby'; theme?: Theme } | null>(null);
   const [selected, setSelected] = useState<Tour | null>(null);
@@ -40,8 +45,20 @@ function PublicApp() {
   const [nearby, setNearby] = useState<{ tour: Tour; distance: number }[]>([]);
   const [geoMessage, setGeoMessage] = useState('');
   const [toast, setToast] = useState('');
-  const tourList = useMemo(() => tours.filter((tour) => activeTheme === 'All' || tour.theme === activeTheme), [activeTheme]);
+  const tourList = useMemo(() => tours.filter((tour) => activeTheme === 'All' || tour.theme === activeTheme), [activeTheme, tours]);
   const nearbyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSelected(current => {
+      if (!current) return null;
+      const next = tours.find(tour => tour.id === current.id);
+      return next && JSON.stringify(next) === JSON.stringify(current) ? current : next ?? null;
+    });
+    setNearby(current => current.filter(item => {
+      const next = tours.find(tour => tour.id === item.tour.id);
+      return next && JSON.stringify(next) === JSON.stringify(item.tour);
+    }));
+  }, [tours]);
 
   const notify = (message: string) => {
     setToast(message);
@@ -54,7 +71,7 @@ function PublicApp() {
     setGeoMessage('');
     try {
       const position = await getPosition();
-      const ranked = tours.map((tour) => ({
+      const ranked = toursRef.current.map((tour) => ({
         tour,
         distance: distanceKm(position, { lat: tour.stops[0].lat, lon: tour.stops[0].lon }),
       })).sort((a, b) => a.distance - b.distance).slice(0, 3);
@@ -142,7 +159,7 @@ function PublicApp() {
         <div className="theme-list">
           {categoryList.categories.map((theme, index) => (
             <button key={theme} className={`theme-button${activeTheme === theme ? ' active' : ''}`} onClick={() => { setActiveTheme(theme); setPlannerEntry({ mode: 'theme', theme }); document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} data-testid={`filter-theme-${theme.toLowerCase()}`} aria-pressed={activeTheme === theme}>
-              <span><span className="theme-count">{String(index + 1).padStart(2, '0')} / {themeCount(theme)}</span><br /><span className="theme-name">{theme}</span></span><ArrowRight size={17} />
+              <span><span className="theme-count">{String(index + 1).padStart(2, '0')} / {themeCount(theme, tours)}</span><br /><span className="theme-name">{theme}</span></span><ArrowRight size={17} />
             </button>
           ))}
         </div>
@@ -157,8 +174,11 @@ function PublicApp() {
           <p data-testid="text-tour-count">{String(tourList.length).padStart(2, '0')} CURATED WALKS</p>
           {activeTheme !== 'All' && <button className="button-secondary" onClick={() => setActiveTheme('All')} data-testid="button-clear-filter">Show all walks <X size={14} /></button>}
         </div>
+        {curated.loading && tours.length === 0 && <p className="section-sub" role="status">Loading curated walks…</p>}
+        {curated.notice && <p className="section-sub" role="status">{curated.notice}</p>}
+        {curated.error && <div className="planner-msg" role="alert">{curated.error} <button className="chip" onClick={() => void curated.reload()}>Try again</button></div>}
         <div className="tour-list">
-          {tourList.length === 0 && <p className="section-sub">There are no curated tours for this category yet. Use the planner above to build a walk from its published attractions.</p>}
+          {!curated.loading && !curated.error && tourList.length === 0 && <p className="section-sub">There are no curated tours for this category yet. Use the planner above to build a walk from its published attractions.</p>}
           {tourList.map((tour, index) => (
             <article className="tour-card" key={tour.id} role="button" tabIndex={0} onClick={() => setSelected(tour)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelected(tour); }} data-testid={`card-tour-${tour.id}`}>
               <div><div className="tour-kicker">{tour.theme} · STARTS AT {tour.start}</div><h3>{tour.title}</h3><p>{tour.subtitle}</p><div className="tour-meta"><span><RouteIcon size={13} /> {tour.distanceKm.toFixed(1)} km</span><span><Clock3 size={13} /> {tour.minutes} min</span><span>{tour.stops.length} stops</span></div></div>
@@ -174,7 +194,7 @@ function PublicApp() {
           <h2>Let Glasgow meet you where you are.</h2>
           <p>Share your location just this once to see the closest walk starts. Your position is used on this device only, unless you choose to start a routed walk.</p>
         </div>
-        <button className="location-button" disabled={geoStatus === 'loading'} onClick={requestNearby} data-testid="button-find-nearby">
+        <button className="location-button" disabled={geoStatus === 'loading' || curated.loading || tours.length === 0 || !!curated.error} onClick={requestNearby} data-testid="button-find-nearby">
           <LocateFixed size={17} /> {geoStatus === 'loading' ? 'Finding your position…' : 'Find walks near me'}
         </button>
         {(geoStatus !== 'idle' && geoStatus !== 'loading') && (
@@ -211,9 +231,14 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
   const [routeState, setRouteState] = useState<'idle' | 'locating' | 'routing' | 'ready' | 'error'>('idle');
   const [routeError, setRouteError] = useState('');
   const [routeInfo, setRouteInfo] = useState('');
+  const routeRun = useRef(0);
+  const routeAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let active = true;
+    routeRun.current++; routeAbort.current?.abort();
+    setMapLoaded(false); setRouteState('idle'); setRouteError(''); setRouteInfo('');
+    routeLayer.current = null;
     loadLeaflet().then((L) => {
       if (!active || !mapRef.current || mapInstance.current) return;
       const map = L.map(mapRef.current, { scrollWheelZoom: false, zoomControl: true, attributionControl: true }).setView([tour.stops[0].lat, tour.stops[0].lon], 14);
@@ -225,8 +250,10 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
       tour.stops.forEach((stop, index) => {
         const point: [number, number] = [stop.lat, stop.lon];
         bounds.push(point);
+        const label = document.createElement('span');
+        label.textContent = `${index + 1}. ${stop.name}`;
         L.circleMarker(point, { radius: 8, color: '#f5f2e9', weight: 3, fillColor: '#d86543', fillOpacity: 1 })
-          .addTo(map).bindTooltip(`${index + 1}. ${stop.name}`, { direction: 'top', offset: [0, -8] });
+          .addTo(map).bindTooltip(label, { direction: 'top', offset: [0, -8] });
       });
       L.polyline(bounds, { color: '#d86543', opacity: 0.5, weight: 3, dashArray: '5 8' }).addTo(map);
       map.fitBounds(bounds, { padding: [34, 34] });
@@ -236,10 +263,15 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
     }).catch(() => {
       if (active) setRouteError('The interactive map could not load. Check your connection and use the stop list below.');
     });
-    return () => { active = false; if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
+    return () => { active = false; routeRun.current++; routeAbort.current?.abort(); if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
   }, [tour]);
 
   const beginRoute = async (useGps = true) => {
+    const run = ++routeRun.current;
+    routeAbort.current?.abort();
+    const controller = new AbortController();
+    routeAbort.current = controller;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     setRouteState(useGps ? 'locating' : 'routing');
     setRouteError('');
     setRouteInfo('');
@@ -251,6 +283,7 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
       if (!mapInstance.current || !window.L) throw new Error('Map is not ready.');
       const firstStop = { lat: tour.stops[0].lat, lon: tour.stops[0].lon };
       const position = useGps ? await getPosition() : firstStop;
+      if (run !== routeRun.current) return;
       if (useGps && distanceKm(position, firstStop) > 25) {
         throw Object.assign(new Error('You appear to be outside Glasgow. Choose “Route from tour start” to plan the walk without your location.'), { code: 0 });
       }
@@ -259,12 +292,13 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
       const points = useGps ? [position, ...stops] : stops;
       const coordinates = points.map((point) => `${point.lon},${point.lat}`).join(';');
       const url = `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coordinates}?overview=full&geometries=geojson`;
-      const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+      timeout = setTimeout(() => controller.abort(), 30000);
+      const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) throw new Error(`Walking service returned ${response.status}.`);
       const result = await response.json();
       const pedestrianRoute = result.routes?.[0];
       if (result.code !== 'Ok' || !pedestrianRoute?.geometry?.coordinates?.length) throw new Error('The walking service returned no route.');
-      if (!mapInstance.current) return;
+      if (run !== routeRun.current || !mapInstance.current) return;
       const L = window.L;
       const route = L.geoJSON(pedestrianRoute.geometry, { style: { color: '#183a36', weight: 5, opacity: 0.9 } });
       routeLayer.current = route.addTo(mapInstance.current);
@@ -274,6 +308,7 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
       setRouteInfo(`Walking route from ${useGps ? 'your location' : 'the tour start'} · ${(pedestrianRoute.distance / 1000).toFixed(1)} km · about ${Math.ceil(pedestrianRoute.duration / 60)} min, excluding stops`);
       setRouteState('ready');
     } catch (error) {
+      if (run !== routeRun.current) return;
       const geoError = error as GeolocationPositionError & { code?: number };
       if (geoError.code === 1) {
         setRouteState('error');
@@ -285,7 +320,7 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
         setRouteState('error');
         setRouteError('The walking service could not provide a route just now. No pedestrian route has been drawn; please try again.');
       }
-    }
+    } finally { if (timeout) clearTimeout(timeout); }
   };
 
   return (

@@ -1,6 +1,6 @@
 # Wander Glasgow
 
-A portable, static React frontend with a user-owned Supabase project for shared attractions and administrator sign-in. There is no Replit-specific database, authentication, storage, connector or runtime dependency, and no product API server is required.
+A portable, static React frontend with a user-owned Supabase project for shared attractions, curated walks and administrator sign-in. There is no Replit-specific database, authentication, storage, connector or runtime dependency, and no product API server is required.
 
 ## Build independently
 
@@ -18,7 +18,7 @@ Upload the contents of `dist/public` to any static web host. Configure an SPA fa
 
 ## One-time Supabase setup
 
-1. In this directory run `npm run setup:export`, or build the app. This generates `public/setup.sql` with the 27 existing real attractions and `public/grant-admin.sql`. Both are also downloadable from the admin sign-in screen.
+1. In this directory run `npm run setup:export`, or build the app. This generates `public/setup.sql` with the 27 existing real attractions and eight original curated walks, plus `public/grant-admin.sql`. Both are also downloadable from the admin sign-in screen.
 2. In your own Supabase project's **SQL Editor**, run the contents of `public/setup.sql`. It creates `public.glasgow_attractions`, a private administrator allow-list, constraints and row-level security. It seeds once: re-running the script preserves later edits and deletions. It does not overwrite another database or grant an arbitrary first user admin rights.
 3. Under **Authentication → Users**, create your administrator account with your own email/password and confirm the account. You can use the dashboard's confirmed-user creation; keep passwords out of project files and build variables.
 4. Copy `supabase/grant-admin.sql` into SQL Editor, replace `REPLACE_WITH_ADMIN_EMAIL` with that account's email, then run it. Only project-owner SQL access can authorise an administrator; signing up or setting user metadata cannot.
@@ -39,7 +39,19 @@ After upgrading, open **Manage categories**, enter a name of 2–40 characters, 
 
 Only approved administrators can add categories. Public visitors and ordinary signed-in users can read the list but cannot modify it. Each attraction's category is enforced by a foreign key, not a hard-coded four-value check. This interface adds categories; it does not rename or delete existing categories.
 
-Both **Pick a category** and **Explore nearby** load the published catalogue anew when a walk is requested. Drafts are excluded even if an administrator is browsing the visitor site. The eight editorial tours retain their fixed routes/stops; catalogue management changes dynamically planned walks, not those authored tour itineraries.
+Both **Pick categories** and **Explore nearby** load the published attraction catalogue anew when a walk is requested. Pick categories accepts one or more choices and excludes all non-selected categories. Draft attractions are excluded even if an administrator is browsing the visitor site. Search choices are 1, 2, 3, 4, 5 and “5 km+”; the latter searches up to 10 km on foot with a 15 km total-walk limit, while other choices retain a 5 km total-walk limit.
+
+## Creating curated walks
+
+For an existing Supabase installation, sign in and choose **Curated walks**. Download `curated-walks-upgrade.sql` from the setup message, run its complete contents in your Supabase project's SQL Editor, and refresh. Fresh installs already include it in `setup.sql`. The upgrade imports the original eight walks once and preserves existing attractions, custom categories and admin authorisations. Re-running setup or the upgrade will not overwrite edits or resurrect deleted walks.
+
+In **Curated walks → Add walk**, enter a title, description and category. Add published attractions, reorder them with the up/down controls, and edit the stop narratives as needed. The first stop is the listed start; there is no forced return leg. Save an unfinished walk as a draft, or publish a 2–30-stop walk after calculating its walking-network distance/time. Publishing automatically measures an unmeasured order. Changing stops or their order invalidates the old measurement; route-service errors do not substitute straight-line estimates. Walking times exclude sightseeing.
+
+Walks can be searched, edited, unpublished by saving as a draft, or deleted with confirmation. Concurrent updates/deletes use server-owned timestamps to prevent stale edits. Deleting a walk does not delete attractions. Stops are editorial snapshots: later changes to source attractions do not silently change an existing walk. Review affected walks explicitly when their source places change.
+
+The visitor site reads only published walks, including added walks and edits to originals. It refreshes on focus and every minute while visible; reload also fetches the current catalogue. Only an explicitly unconfigured/not-installed shared table shows the original-walk fallback, with a notice. A genuine service failure is reported, and an intentionally empty catalogue stays empty.
+
+Run `npm run test:walks` for isolated validation and Supabase request-contract tests. `npm run test:admin` also exercises actual PostgreSQL curated-walk policies, publication, stop snapshots, conflict protection and upgrade idempotency. These do not mutate the owner's remote project.
 
 Before storage is installed, visitor planning explicitly announces that it is using the original catalogue. After installation, a deliberately empty catalogue stays empty; live service failures show errors rather than silently using stale seed data.
 
