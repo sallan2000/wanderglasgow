@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:planner": "node scripts/test-planner.mjs",
     "test:walks": "node scripts/test-curated-walks.mjs",
+    "test:walks:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walks.config.mjs",
     "test:admin": "node scripts/export-supabase-setup.mjs && node scripts/test-admin-security.mjs"
   },
   "dependencies": {
@@ -20,12 +21,14 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
     "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/vite": "^4.1.11",
     "@types/node": "^25.3.3",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
+    "leaflet": "^1.9.4",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.7.3",
     "vite": "^6.3.5"

@@ -63,6 +63,34 @@ Run `npm run test:admin` for actual PostgreSQL checks in an isolated in-memory d
 
 ## Mapping and privacy
 
+### Repeatable walk editor browser regressions
+
+Run `pnpm --filter @workspace/glasgow-walks run test:walks:browser` from the workspace root
+(or `pnpm run test:walks:browser` from this artifact). The suite type-checks its fixture,
+starts its own loopback-only Vite server on port 4179, and runs Chromium. It does not
+need a running app, Supabase credentials, or an internet connection once dependencies
+and Chromium are installed. On Replit it uses `/repl/tools/bin/chromium`; elsewhere
+run `pnpm exec playwright install chromium` in this artifact or set
+`WALK_TEST_CHROMIUM` to an existing Chromium executable. Failures retain screenshots,
+traces and error context in `test-results/walk-browser/`.
+
+The fixture renders the real `AdminWalkEditor`, `AdminWalkMap`, `browser-helpers`,
+app styles and Leaflet library. A test-only Vite plugin replaces the editor's storage
+and measurement imports; the save stub throws, route promises are manually settled,
+and every unexpected external request fails the test. CDN library/styles and tile
+responses are served from local fixtures, with no Supabase writes or location access.
+Responses deliberately ignore abort so late success/failure guards are exercised.
+A test-only coordinate button calls `setStops` without `invalidate`, checking the
+coordinate-change effect independently of reorder/remove handlers; this control
+is not included in the app's build.
+
+Coverage includes delayed reorder/remove responses, changed coordinates, story-only
+edits, map-library timeout and stylesheet failure/retry, tile error/retry, cleanup
+when hiding/reopening (including pending library loads), dirty discard and focus
+restoration, zero/one-stop previews and publishing validation, and mobile map sizing.
+These component checks complement `test:walks` transport checks, not live database
+or administrator authentication tests.
+
 The app loads Leaflet from unpkg, map tiles from OpenStreetMap, and walking routes from the independent FOSSGIS/OpenStreetMap foot-routing service. Fonts come from Google Fonts. These require an internet connection and are not Replit services.
 
 Location is requested only after a user action. Visitors can choose a theme or a mixed nearby-attraction walk. A GPS-started plan sends the current location and candidate attraction coordinates to the routing provider to calculate actual pedestrian-network distances. A manually chosen Glasgow starting point does not share GPS coordinates. Locations are not persisted.

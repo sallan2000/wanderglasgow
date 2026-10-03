@@ -2,3 +2,4 @@
 - [Leaflet initial view](leaflet-initial-view.md) — initialise map bounds before adding mixed vector overlays; an initialization error is not a tile-provider outage.
 - [Workspace packages](workspace-package-installation.md) — the generic installer targets the root; keep app dependencies artifact-scoped when recovering from its workspace guard.
 - [Owner setup confirmation](owner-setup-confirmation.md) — guided Supabase dashboard setup is owner-confirmed; do not confuse this with verified live attraction mutations.
+- [Map readiness](map-readiness.md) — cached loaders can hide loading/ready transitions through React batching; dependent overlays must observe the replacement map.

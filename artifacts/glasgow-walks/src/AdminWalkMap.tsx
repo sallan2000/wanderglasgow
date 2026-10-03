@@ -13,6 +13,7 @@ export default function AdminWalkMap({ stops, geometry }: Props) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [tileError, setTileError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [mapVersion, setMapVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -32,6 +33,9 @@ export default function AdminWalkMap({ stops, geometry }: Props) {
       resize = new ResizeObserver(() => m.invalidateSize());
       resize.observe(canvas.current);
       setStatus('ready');
+      // A cached loader can resolve within the same React batch as loading.
+      // Signal the new map instance even if status ends up unchanged.
+      setMapVersion(version => version + 1);
     }).catch(() => {
       if (!active) return;
       map.current?.remove(); map.current = null; layers.current = null;
@@ -65,7 +69,7 @@ export default function AdminWalkMap({ stops, geometry }: Props) {
       group.clearLayers();
       setStatus('error');
     }
-  }, [stops, geometry, status, attempt]);
+  }, [stops, geometry, status, mapVersion]);
 
   return <div className="walk-map-preview">
     <div className="walk-map-canvas" ref={canvas} aria-label="Interactive map of ordered walk stops" data-testid="walk-map-preview" />
