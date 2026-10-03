@@ -1,6 +1,10 @@
 import { attractions, distanceKm, type Attraction, type Position } from './attractions';
 import type { Theme } from './tours';
 
+// The "5 km+" choice is a bounded search, not an unlimited walking request.
+export const SEARCH_RADII_KM = [1, 2, 3, 5, 10] as const;
+export const defaultWalkLimitKm = (radiusKm: number) => radiusKm === 10 ? 15 : 5;
+
 export type PlannerOptions = {
   theme: Theme | Theme[] | 'All';
   radiusKm: number;
@@ -124,13 +128,13 @@ export async function planAttractionWalk(
   // Retain single-category inputs for existing callers; only scalar 'All' is unrestricted.
   const selectedThemes = options.theme === 'All' ? null :
     typeof options.theme === 'string' ? [options.theme] : options.theme;
-  if (![1, 2, 3, 5].includes(options.radiusKm) || !Number.isInteger(options.maxStops) ||
+  if (!SEARCH_RADII_KM.some(radius => radius === options.radiusKm) || !Number.isInteger(options.maxStops) ||
       options.maxStops < 1 || options.maxStops > 6 ||
        (selectedThemes !== null && (!Array.isArray(selectedThemes) || !selectedThemes.length ||
          selectedThemes.some(theme => typeof theme !== 'string' || !theme.trim() || theme.length > 40)))) {
     throw new WalkPlanningError('Choose at least one valid category, a radius and number of stops.', 'location');
   }
-  const maxWalkKm = options.maxWalkKm ?? 5;
+  const maxWalkKm = options.maxWalkKm ?? defaultWalkLimitKm(options.radiusKm);
   if (!Number.isFinite(maxWalkKm) || maxWalkKm <= 0 || maxWalkKm > 15) {
     throw new WalkPlanningError('Choose a walking limit between zero and 15 km.', 'location');
   }

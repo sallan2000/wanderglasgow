@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LocateFixed, Navigation } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
-import { planAttractionWalk, WalkPlanningError, type PlannedWalk } from './walk-planner';
+import { planAttractionWalk, WalkPlanningError, SEARCH_RADII_KM, defaultWalkLimitKm, type PlannedWalk } from './walk-planner';
 import type { Theme } from './tours';
 import type { Position } from './attractions';
 import { CatalogueError, loadPublicCatalogue } from './attraction-store';
@@ -151,8 +151,9 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
           <div>
             <span className="field-label">Search radius</span>
             <div className="chip-row">
-              {[1, 2, 3, 5].map((r) => <button key={r} className={`chip${radius === r ? ' active' : ''}`} aria-pressed={radius === r} onClick={() => change(() => setRadius(r))} data-testid={`button-radius-${r}`}>{r} km</button>)}
+              {SEARCH_RADII_KM.map((r) => <button key={r} className={`chip${radius === r ? ' active' : ''}`} aria-pressed={radius === r} aria-label={r === 10 ? '5 km+, search up to 10 km' : `${r} km`} onClick={() => change(() => setRadius(r))} data-testid={`button-radius-${r}`}>{r === 10 ? '5 km+' : `${r} km`}</button>)}
             </div>
+            {radius === 10 && <p className="planner-note" data-testid="text-extended-radius">5 km+ searches up to 10 km away on foot, including nearer attractions. Allow extra time for a longer walk.</p>}
           </div>
           <div>
             <span className="field-label">Up to how many stops</span>
@@ -167,7 +168,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
             </button>
           </div>
           {mode === 'theme' && themes.length === 0 && <p className="planner-note" data-testid="text-choose-theme">Choose at least one category to continue.</p>}
-          <p className="planner-note" data-testid="text-privacy">The total walk is limited to 5 km. Your location is requested only when you press the plan button with My location selected. To build the route, the start coordinates and attraction positions are sent to the independent OpenStreetMap walking service. They are never stored by this site. Walking distances and times exclude time spent at stops.</p>
+          <p className="planner-note" data-testid="text-privacy">The total walk is limited to {defaultWalkLimitKm(radius)} km. Your location is requested only when you press the plan button with My location selected. To build the route, the start coordinates and attraction positions are sent to the independent OpenStreetMap walking service. They are never stored by this site. Walking distances and times exclude time spent at stops.</p>
         </div>
       )}
 

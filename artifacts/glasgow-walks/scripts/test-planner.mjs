@@ -14,7 +14,7 @@ try {
     }).outputText.replace(/from '(\.\/[^']+)'/g, "from '$1.mjs'");
     await writeFile(join(temporary, `${name}.mjs`), output);
   }
-  const { findEfficientOrder, planAttractionWalk } =
+  const { findEfficientOrder, planAttractionWalk, defaultWalkLimitKm } =
     await import(pathToFileURL(join(temporary, 'walk-planner.mjs')).href);
   const { attractions } = await import(pathToFileURL(join(temporary, 'attractions.mjs')).href);
   assert.equal(new Set(attractions.map(item => item.id)).size, attractions.length);
@@ -55,7 +55,7 @@ try {
   assert.equal(findEfficientOrder([[0, null], [20, 0]], 1, 100).order.length, 0);
 
   const originalFetch = globalThis.fetch;
-  let requests = 0, failService = false, lastTableCoordinates = [];
+  let requests = 0, failService = false, lastTableCoordinates = [], farService = false, routeDistance = 1200;
   globalThis.fetch = async url => {
     requests++;
     if (failService) return new Response('Unavailable', { status: 503 });
@@ -64,11 +64,12 @@ try {
     if (String(url).includes('/table/')) {
       lastTableCoordinates = coordinates;
       const distances = coordinates.map((_, from) => coordinates.map((__, to) =>
-        from === to ? 0 : from === 0 ? to === 1 ? null : to === coordinates.length - 1 ? 5000 : 200 + to * 40 : 80));
+        from === to ? 0 : farService ? from === 0 ? to === coordinates.length - 1 ? 10500 : 6200 + to * 500 : 500 :
+          from === 0 ? to === 1 ? null : to === coordinates.length - 1 ? 5000 : 200 + to * 40 : 80));
       return Response.json({ code: 'Ok', distances });
     }
     return Response.json({ code: 'Ok', routes: [{
-      distance: 1200, duration: 1000, geometry: { type: 'LineString', coordinates },
+      distance: routeDistance, duration: 1000, geometry: { type: 'LineString', coordinates },
     }] });
   };
   try {
@@ -79,6 +80,30 @@ try {
     assert.equal(mixed.nearby.filter(item => item.included).length, mixed.stops.length);
     assert.equal(mixed.excludedCount, mixed.nearby.length - mixed.stops.length);
     assert.equal(mixed.distanceMeters, 1200, 'Use returned route metrics');
+    assert.equal(defaultWalkLimitKm(5), 5, 'Existing search options retain a 5 km walking limit');
+    assert.equal(defaultWalkLimitKm(10), 15, 'Extended search permits a 15 km walk');
+    const farCatalogue = [0.058, 0.060, 0.062, 0.064, 0.11].map((offset, i) => ({
+      id: `far-${i}`, name: `Farther attraction ${i}`, description: 'Extended radius check.',
+      place: 'Glasgow', theme: i % 2 ? 'Music' : 'Art', lat: origin.lat + offset, lon: origin.lon,
+    }));
+    const beforeFarSearch = requests;
+    await assert.rejects(planAttractionWalk(origin, { theme: ['Art', 'Music'], radiusKm: 5, maxStops: 3 }, undefined, farCatalogue),
+      error => error.kind === 'empty', 'The original 5 km search still excludes farther attractions');
+    assert.equal(requests, beforeFarSearch);
+    farService = true; routeDistance = 7700;
+    const farWalk = await planAttractionWalk(origin, { theme: ['Art', 'Music'], radiusKm: 10, maxStops: 3 }, undefined, farCatalogue);
+    assert.equal(farWalk.stops.length, 3, '5 km+ can actually build a walk to farther attractions');
+    assert(farWalk.stops.some(item => item.theme === 'Art') && farWalk.stops.some(item => item.theme === 'Music'));
+    assert.equal(farWalk.distanceMeters, 7700, 'An extended walk is not rejected by the old 5 km total limit');
+    assert(farWalk.nearby.every(item => item.walkingDistanceMeters > 5000 && item.walkingDistanceMeters <= 10000), 'Extended radius is still bounded by actual walking distance');
+    assert(!farWalk.nearby.some(item => item.id === 'far-3'), 'A sight beyond 10 km on foot is excluded even if closer in a straight line');
+    assert.equal(lastTableCoordinates.length, 5, 'Attractions over 10 km in a straight line are excluded before routing');
+    await assert.rejects(planAttractionWalk(origin, { theme: ['Art', 'Music'], radiusKm: 10, maxStops: 3, maxWalkKm: 5 }, undefined, farCatalogue),
+      error => error.kind === 'empty', 'An explicitly shorter walking budget remains enforced');
+    routeDistance = 16000;
+    await assert.rejects(planAttractionWalk(origin, { theme: ['Art', 'Music'], radiusKm: 10, maxStops: 3 }, undefined, farCatalogue),
+      error => error.kind === 'service', 'The final extended route may not exceed 15 km');
+    farService = false; routeDistance = 1200;
     const themed = await planAttractionWalk(origin, { theme: 'History', radiusKm: 2, maxStops: 3 });
     assert(themed.stops.length > 0 && themed.stops.every(item => item.theme === 'History'));
     const unionCatalogue = ['History', 'Art', 'Music', 'Sport', 'Art', 'Music', 'Art', 'Music'].map((theme, i) => ({
@@ -141,7 +166,7 @@ try {
   } finally {
     globalThis.fetch = originalFetch;
   }
-  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, single/multiple/custom category filtering, deselection, empty selections, walking radius, cancellation and service errors.`);
+  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, single/multiple/custom category filtering, deselection, empty selections, standard/extended walking radius, cancellation and service errors.`);
   if (process.argv.includes('--live')) {
     const walk = await planAttractionWalk({ lat: 55.8605, lon: -4.2494 },
       { theme: 'All', radiusKm: 2, maxStops: 6 });

@@ -40,6 +40,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - Eight themed Glasgow walks across art, music, history and sport.
 - Nearby-start recommendations after explicit GPS permission.
 - Visitors choose one or more categories, or all nearby attractions. A category-selected walk includes only attractions matching any selected category; non-selected categories are excluded from both the route and nearby suggestions. Order those attractions using actual pedestrian-network distances, with bounded detours and no forced return to the start.
+- The “5 km+” search is capped at 10 km on foot and allows a total walk up to 15 km. The 1–5 km search options retain their 5 km total-walk limit. Longer searches also include nearer attractions.
 - Administrators add/edit/delete attractions with descriptions, exact map coordinates, one best-fitting theme, and draft/published status. Both dynamic visitor modes refetch published attractions whenever a walk is planned.
 - Interactive stop maps and true foot-network routes, with a no-GPS route-from-tour-start option.
 
