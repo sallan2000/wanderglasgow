@@ -5,9 +5,9 @@ description: Owner confirmation of the guided Supabase bootstrap and the limits 
 
 The guided, owner-run Supabase dashboard setup is a confirmed working approach for this project.
 
-**Why:** The owner reported “that all worked” after guidance covering database installation, administrator account creation, access authorisation, and portal sign-in.
+**Why:** The owner reported “that all worked” after guidance covering database installation, administrator account creation, access authorisation, and portal sign-in. They subsequently confirmed that the incremental custom-category SQL upgrade ran successfully.
 
-**How to apply:** Reuse the guided owner setup when needed rather than assuming it remains blocked. This confirmation does not establish that the owner tested live attraction creation, editing, or deletion; distinguish those operations from setup and sign-in.
+**How to apply:** Reuse the guided owner setup when needed rather than assuming it remains blocked. These confirmations cover setup, sign-in and successful SQL execution, not live attraction or category mutations; distinguish those operations when reporting verification.
 
 For future catalogue schema extensions, provide an incremental owner-run SQL upgrade that preserves existing attractions and administrator authorisations.
 
