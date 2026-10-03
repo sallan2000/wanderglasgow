@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:planner": "node scripts/test-planner.mjs",
     "test:walks": "node scripts/test-curated-walks.mjs",
-    "test:walks:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walks.config.mjs",
+    "test:walks:browser": "tsc -p tsconfig.walk-browser.json --noEmit && { playwright test --config playwright.walks.config.mjs; walk_status=$?; playwright test --config playwright.walk-list.config.mjs; list_status=$?; [ $walk_status -eq 0 ] && [ $list_status -eq 0 ]; }",
+    "test:walks:list:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walk-list.config.mjs",
     "test:admin": "node scripts/export-supabase-setup.mjs && node scripts/test-admin-security.mjs",
     "test:admin:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walks.config.mjs --grep \"admin auth\""
   },

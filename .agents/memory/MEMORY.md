@@ -5,3 +5,4 @@
 - [Owner setup confirmation](owner-setup-confirmation.md) — guided Supabase dashboard setup is owner-confirmed; do not confuse this with verified live attraction mutations.
 - [Map readiness](map-readiness.md) — cached loaders can hide loading/ready transitions through React batching; dependent overlays must observe the replacement map.
 - [Leaflet tile retry](leaflet-tile-retry.md) — background tile retries redraw the existing layer; distinguish tile events from map recreation in lifecycle checks.
+- [Rendered fixture isolation](rendered-fixture-isolation.md) — give component suites separate Vite fixtures when the same module needs different fake store contracts.
