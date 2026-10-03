@@ -67,6 +67,31 @@ test('a late list refresh cannot overwrite a successfully saved walk', async ({ 
   await verify();
 });
 
+test('a failed list refresh keeps saved walks visible and allows retry', async ({ page }) => {
+  const verify = await isolateWalkList(page);
+  const original = walk('walk-a', 'Riverside Route');
+  const another = walk('walk-b', 'Museum Loop', 'Museums');
+  await loadRows(page, [original]);
+
+  await page.getByTestId('walk-button-refresh').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.listRequests.length)).toBe(2);
+  await page.evaluate(() => window.walkListFixture.rejectList(1, 'Refresh failed: permission denied.'));
+
+  await expect(page.getByTestId('walk-row-walk-a')).toBeVisible();
+  await expect(page.getByTestId('walk-status-list-error')).toContainText('Refresh failed: permission denied.');
+  await expect(page.getByTestId('walk-button-retry-list')).toBeVisible();
+
+  await page.getByTestId('walk-button-retry-list').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.listRequests.length)).toBe(3);
+  await expect(page.getByTestId('walk-status-list-error')).toHaveCount(0);
+  await page.evaluate(rows => window.walkListFixture.resolveList(2, rows), [another]);
+
+  await expect(page.getByTestId('walk-status-list-error')).toHaveCount(0);
+  await expect(page.getByTestId('walk-row-walk-a')).toHaveCount(0);
+  await expect(page.getByTestId('walk-row-walk-b')).toBeVisible();
+  await verify();
+});
+
 test('a late list refresh cannot restore a successfully deleted walk', async ({ page }) => {
   const verify = await isolateWalkList(page);
   const deleted = walk('walk-a', 'Riverside Route');

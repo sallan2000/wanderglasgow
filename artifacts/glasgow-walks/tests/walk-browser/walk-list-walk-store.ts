@@ -40,6 +40,9 @@ export const walkListFixture = {
     state.listRequests[index]?.resolve(structuredClone(rows));
     await new Promise<void>(resolve => setTimeout(resolve, 0));
   },
+  rejectList(index: number, message: string) {
+    state.listRequests[index]?.reject(new CatalogueError(message));
+  },
   resolveSave(index: number, saved?: Partial<ManagedWalk>) {
     const request = state.saveRequests[index];
     if (!request) throw new Error(`No save request at index ${index}`);
