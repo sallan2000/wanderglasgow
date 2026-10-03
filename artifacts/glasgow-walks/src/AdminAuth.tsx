@@ -110,6 +110,7 @@ export function SignIn({ notice }: { notice?: string }) {
           <li>Copy the <a href={base + 'grant-admin.sql'} target="_blank" rel="noreferrer" data-testid="link-grant-admin">admin access SQL</a> into SQL Editor, replace <code>REPLACE_WITH_ADMIN_EMAIL</code> with that account’s email, then run it.</li>
           <li>Return here and sign in. Creating an account alone does not grant editing access.</li>
         </ol>
+        <p>Already set up the original four-category catalogue? Run the <a href={base + 'categories-upgrade.sql'} target="_blank" rel="noreferrer">category upgrade SQL</a> once to enable custom categories. Your attractions and admin access are preserved.</p>
         <p>Only the Supabase project owner can run these setup steps. No private key or administrator password belongs in the website’s configuration.</p>
       </details>
     </AuthFrame>

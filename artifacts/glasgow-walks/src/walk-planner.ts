@@ -122,8 +122,8 @@ export async function planAttractionWalk(
   }
   if (![1, 2, 3, 5].includes(options.radiusKm) || !Number.isInteger(options.maxStops) ||
       options.maxStops < 1 || options.maxStops > 6 ||
-      !['All', 'Art', 'Music', 'History', 'Sport'].includes(options.theme)) {
-    throw new WalkPlanningError('Choose a valid theme, radius and number of stops.', 'location');
+      typeof options.theme !== 'string' || !options.theme.trim() || options.theme.length > 40) {
+    throw new WalkPlanningError('Choose a valid category, radius and number of stops.', 'location');
   }
   const maxWalkKm = options.maxWalkKm ?? 5;
   if (!Number.isFinite(maxWalkKm) || maxWalkKm <= 0 || maxWalkKm > 15) {
@@ -136,7 +136,7 @@ export async function planAttractionWalk(
     .sort((a, b) => a.distance - b.distance)
     .slice(0, 12).map(entry => entry.item);
   if (!candidates.length) throw new WalkPlanningError(
-    'No attractions match this theme near your starting point. Try all themes, a wider radius, or another Glasgow start.', 'empty');
+    'No attractions match this category near your starting point. Try all categories, a wider radius, or another Glasgow start.', 'empty');
   const coordinates = [origin, ...candidates].map(point => `${point.lon},${point.lat}`).join(';');
   const table = await routingJson(
     `https://routing.openstreetmap.de/routed-foot/table/v1/foot/${coordinates}?annotations=distance,duration`, signal);
@@ -150,7 +150,7 @@ export async function planAttractionWalk(
       entry.distance >= 0 && entry.distance <= options.radiusKm * 1000)
     .sort((a, b) => a.distance - b.distance);
   if (!reachable.length) throw new WalkPlanningError(
-    'No matching attractions are within that walking distance. Try a wider radius or all themes.', 'empty');
+    'No matching attractions are within that walking distance. Try a wider radius or all categories.', 'empty');
   const indices = [0, ...reachable.map(entry => entry.index)];
   const matrix = indices.map(a => indices.map(b => table.distances[a][b] as number | null));
   const chosen = findEfficientOrder(matrix, options.maxStops, maxWalkKm * 1000);

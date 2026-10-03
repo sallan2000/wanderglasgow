@@ -29,17 +29,25 @@ The public key cannot create tables or grant admin access, so steps 2–4 must b
 
 ## Attraction management and security
 
-An attraction has a name, description, optional location/address label, precise latitude/longitude, **exactly one** theme (Art, Music, History or Sport), and published/draft status. Administrators can choose a point on the map, drag the pin, or enter coordinates directly. Saves persist to Supabase and update the visible list. Deletes require confirmation; stale updates/deletes are rejected using server-owned timestamps.
+An attraction has a name, description, optional location/address label, precise latitude/longitude, **exactly one** category from the shared category list, and published/draft status. The original categories are Art, Music, History and Sport. Administrators can choose a point on the map, drag the pin, or enter coordinates directly. Saves persist to Supabase and update the visible list. Deletes require confirmation; stale updates/deletes are rejected using server-owned timestamps.
 
-Both **Pick a theme** and **Explore nearby** load the published catalogue anew when a walk is requested. Drafts are excluded even if an administrator is browsing the visitor site. The eight editorial tours retain their fixed routes/stops; catalogue management changes dynamically planned walks, not those authored tour itineraries.
+### Add custom categories
+
+If the original four-category database is already installed, download `categories-upgrade.sql` from **Admin → Manage categories** (or the owner setup disclosure) and run its entire contents in the same Supabase project's SQL Editor. This one-time, re-runnable update preserves attraction data, timestamps, drafts and administrator access. Fresh installations already include it in `setup.sql`.
+
+After upgrading, open **Manage categories**, enter a name of 2–40 characters, and click **Add category**. Category names are unique regardless of capitalisation; `All` is reserved for the unfiltered view. New categories persist in Supabase and appear immediately in the current admin session's editor and filter. Visitor choices refresh on page load and when returning focus to the page. An empty category can be selected, but planning reports that no published matching attractions are available.
+
+Only approved administrators can add categories. Public visitors and ordinary signed-in users can read the list but cannot modify it. Each attraction's category is enforced by a foreign key, not a hard-coded four-value check. This interface adds categories; it does not rename or delete existing categories.
+
+Both **Pick a category** and **Explore nearby** load the published catalogue anew when a walk is requested. Drafts are excluded even if an administrator is browsing the visitor site. The eight editorial tours retain their fixed routes/stops; catalogue management changes dynamically planned walks, not those authored tour itineraries.
 
 Before storage is installed, visitor planning explicitly announces that it is using the original catalogue. After installation, a deliberately empty catalogue stays empty; live service failures show errors rather than silently using stale seed data.
 
-Public visitors and ordinary signed-in users can read only published attractions. The database enforces all insert/update/delete permissions against the private admin allow-list. It also checks themes, coordinates, text lengths and duplicate names. Remove a user from `glasgow_walks_private.admin_users` in the SQL Editor to revoke editing access immediately.
+Public visitors and ordinary signed-in users can read only published attractions. The database enforces all insert/update/delete permissions against the private admin allow-list. It also checks categories, coordinates, text lengths and duplicate names. Remove a user from `glasgow_walks_private.admin_users` in the SQL Editor to revoke editing access immediately.
 
 Supabase manages authentication, session refresh and password recovery. The website never stores admin passwords. An administrator's session token is stored by the SDK in browser storage; use a trusted device and sign out when finished. User-authored names/descriptions are rendered as text, including map tooltips.
 
-Run `npm run test:admin` for 30 actual PostgreSQL checks in an isolated in-memory database (PGlite), including anonymous/non-admin denial, metadata escalation prevention, drafts, validation, changes visible to visitors, conflicts, revocation and safe seed re-runs. These tests do not alter the Supabase project and are not a substitute for a live sign-in/save check after owner setup.
+Run `npm run test:admin` for actual PostgreSQL checks in an isolated in-memory database (PGlite), including the existing-installation category upgrade, custom category permissions/persistence, anonymous/non-admin denial, metadata escalation prevention, drafts, validation, changes visible to visitors, conflicts, revocation and safe seed re-runs. These tests do not alter the Supabase project and are not a substitute for a live sign-in/save check after owner setup.
 
 ## Mapping and privacy
 

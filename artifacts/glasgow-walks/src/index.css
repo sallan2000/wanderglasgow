@@ -492,12 +492,12 @@ button { cursor: pointer; }
 .section-head {display:flex;justify-content:space-between;align-items:end;margin-bottom:28px;gap:20px;}
 .section h2 {font:600 clamp(34px,4vw,54px)/1.04 var(--app-font-serif);letter-spacing:-.05em;margin:14px 0 0;}
 .section-sub {color:var(--ink-soft);font-size:14px;max-width:310px;line-height:1.6;margin:0;}
-.theme-list {display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+.theme-list {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
 .theme-button {text-align:left;padding:22px 17px 22px 0;border:0;border-right:1px solid var(--line);background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:space-between;transition:background .2s,padding .2s;}
 .theme-button:not(:first-child){padding-left:22px}.theme-button:last-child{border-right:0}
 .theme-button:hover,.theme-button.active{background:#eae6da;padding-right:13px}
 .theme-button.active .theme-name{color:var(--orange)}
-.theme-name{font:600 19px var(--app-font-serif);letter-spacing:-.03em}
+.theme-name{font:600 19px var(--app-font-serif);letter-spacing:-.03em;overflow-wrap:anywhere}
 .theme-count{font:10px var(--app-font-mono);color:#70817b}
 .tour-area {background:#ede9df;}
 .tour-toolbar {display:flex;align-items:center;justify-content:space-between;margin:32px 0 20px;}

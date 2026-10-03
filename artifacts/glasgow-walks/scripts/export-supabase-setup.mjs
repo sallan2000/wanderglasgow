@@ -19,6 +19,7 @@ try {
   const quote = value => `'${String(value).replaceAll("'", "''")}'`;
   const values = attractions.map(a => `(${[a.id, a.name, a.description, a.place, a.theme].map(quote).join(', ')}, ${a.lat}, ${a.lon}, true)`).join(',\n');
   const schema = await readFile(resolve('supabase/schema.sql'), 'utf8');
+  const categories = await readFile(resolve('supabase/categories.sql'), 'utf8');
   const seed = `
 do $seed$
 begin
@@ -35,8 +36,9 @@ commit;
 notify pgrst, 'reload schema';
 `;
   await mkdir(resolve('public'), { recursive: true });
-  await writeFile(resolve('public/setup.sql'), schema + seed);
+  await writeFile(resolve('public/setup.sql'), schema + '\n' + categories + seed);
   await writeFile(resolve('public/grant-admin.sql'), await readFile(resolve('supabase/grant-admin.sql'), 'utf8'));
+  await writeFile(resolve('public/categories-upgrade.sql'), 'begin;\n' + categories + "\ncommit;\nnotify pgrst, 'reload schema';\n");
   console.log(`Generated Supabase setup with ${attractions.length} real attractions. Re-running it preserves edits and deletions.`);
 } finally {
   await rm(temp, { recursive: true, force: true });

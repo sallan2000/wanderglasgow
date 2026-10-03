@@ -4,16 +4,16 @@ import { saveAttraction, CatalogueError, type ManagedAttraction } from './attrac
 import AdminMap from './AdminMap';
 
 type Theme = ManagedAttraction['theme'];
-const THEMES: Theme[] = ['Art', 'Music', 'History', 'Sport'];
 type Props = {
   item?: ManagedAttraction;
+  categories: string[];
   onSaved: (saved: ManagedAttraction, wasNew: boolean) => void;
   onRequestClose: () => void;
   onDirty: (dirty: boolean) => void;
 };
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
-export default function AdminEditor({ item, onSaved, onRequestClose, onDirty }: Props) {
+export default function AdminEditor({ item, categories, onSaved, onRequestClose, onDirty }: Props) {
   const init = useRef({
     name: item?.name ?? '', description: item?.description ?? '', place: item?.place ?? '',
     theme: (item?.theme ?? '') as Theme | '', lat: item ? String(item.lat) : '', lon: item ? String(item.lon) : '',
@@ -36,7 +36,7 @@ export default function AdminEditor({ item, onSaved, onRequestClose, onDirty }: 
   if (f.name.trim().length < 2 || f.name.trim().length > 200) problems.name = 'Enter a name of 2 to 200 characters.';
   if (desc < 10 || desc > 5000) problems.description = 'Write between 10 and 5,000 characters.';
   if (f.place.trim().length > 300) problems.place = 'Keep this under 300 characters.';
-  if (!f.theme) problems.theme = 'Choose the one theme that fits best.';
+  if (!f.theme || !categories.includes(f.theme)) problems.theme = 'Choose the one category that fits best.';
   if (lat === null || !Number.isFinite(lat) || lat < -90 || lat > 90) problems.lat = 'Latitude must be between -90 and 90.';
   if (lon === null || !Number.isFinite(lon) || lon < -180 || lon > 180) problems.lon = 'Longitude must be between -180 and 180.';
   const show = (k: string) => tried && problems[k];
@@ -69,9 +69,9 @@ export default function AdminEditor({ item, onSaved, onRequestClose, onDirty }: 
           <textarea id="f-desc" className={`adm-in${show('description') ? ' bad' : ''}`} value={f.description} onChange={(e) => set('description', e.target.value)} data-testid="input-description" />
           <p className="adm-hint" data-testid="text-description-count">{desc.toLocaleString()} / 5,000 characters (minimum 10)</p>
           {show('description') && <p className="adm-err">{problems.description}</p>}</div>
-        <div><span className="adm-lab" id="f-theme">Theme</span>
+        <div><span className="adm-lab" id="f-theme">Category</span>
           <div className="adm-themes" role="radiogroup" aria-labelledby="f-theme">
-            {THEMES.map((t) => (
+            {categories.map((t) => (
               <button key={t} type="button" role="radio" aria-checked={f.theme === t} className="adm-theme" onClick={() => set('theme', t)} data-testid={`radio-theme-${t.toLowerCase()}`}>{t}</button>
             ))}
           </div>

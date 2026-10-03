@@ -4,10 +4,13 @@ import { loadLeaflet, getPosition } from './browser-helpers';
 import WalkPlanner from './WalkPlanner';
 import AdminPortal from './AdminPortal';
 import { tours, type Tour, type Theme } from './tours';
+import { useAttractionCategories } from './hooks/use-attraction-categories';
 
 
-const themes: Theme[] = ['Art', 'Music', 'History', 'Sport'];
-const themeCount = (theme: Theme) => `${String(tours.filter((tour) => tour.theme === theme).length).padStart(2, '0')} WALKS`;
+const themeCount = (theme: Theme) => {
+  const count = tours.filter(tour => tour.theme === theme).length;
+  return count ? `${String(count).padStart(2, '0')} CURATED WALKS` : 'PLAN YOUR WALK';
+};
 
 type Position = { lat: number; lon: number };
 type GeoStatus = 'idle' | 'loading' | 'success' | 'denied' | 'unavailable' | 'error';
@@ -29,6 +32,7 @@ function locationMessage(status: GeoStatus, message: string) {
 }
 
 function PublicApp() {
+  const categoryList = useAttractionCategories();
   const [activeTheme, setActiveTheme] = useState<Theme | 'All'>('All');
   const [plannerEntry, setPlannerEntry] = useState<{ mode: 'theme' | 'nearby'; theme?: Theme } | null>(null);
   const [selected, setSelected] = useState<Tour | null>(null);
@@ -86,7 +90,7 @@ function PublicApp() {
         </a>
         <nav className="nav-links" aria-label="Main navigation">
           <button onClick={() => document.getElementById('walks')?.scrollIntoView({ behavior: 'smooth' })} data-testid="nav-browse">Curated tours</button>
-          <button onClick={() => { setPlannerEntry({ mode: 'theme' }); document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} data-testid="nav-themes">Explore by theme</button>
+          <button onClick={() => { setPlannerEntry({ mode: 'theme' }); document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} data-testid="nav-themes">Explore by category</button>
           <button className="nav-pill" onClick={() => document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })} data-testid="nav-planner">Plan my walk</button>
         </nav>
       </header>
@@ -114,21 +118,25 @@ function PublicApp() {
         </div>
       </section>
 
-      <WalkPlanner entry={plannerEntry} />
+      <WalkPlanner entry={plannerEntry} categories={categoryList.categories} categoriesLoading={categoryList.loading}
+        categoriesError={categoryList.error} onRetryCategories={() => void categoryList.reload()} />
 
       <div className="intro-strip">
-        <span>01 / Take a theme</span>
-        <strong>Art, music, history, sport — follow what pulls you in.</strong>
+        <span>01 / Pick a category</span>
+        <strong>Follow your interests and discover another side of Glasgow.</strong>
         <span>02 / Take a turn</span>
       </div>
 
       <section className="section" id="themes">
         <div className="section-head">
           <div><div className="eyebrow">Pick your kind of Glasgow</div><h2>What brings you out?</h2></div>
-          <p className="section-sub">Four ways into the city. Each walk is mapped, paced and packed with places worth stopping for.</p>
+          <p className="section-sub">Choose your interest and build a walk around it, or explore one of our curated tours.</p>
         </div>
+        {categoryList.loading && <p className="section-sub" role="status">Loading categories…</p>}
+        {categoryList.notice && <p className="section-sub" role="status">{categoryList.notice}</p>}
+        {categoryList.error && <div className="planner-msg" role="alert">{categoryList.error} <button className="chip" onClick={() => void categoryList.reload()}>Try again</button></div>}
         <div className="theme-list">
-          {themes.map((theme, index) => (
+          {categoryList.categories.map((theme, index) => (
             <button key={theme} className={`theme-button${activeTheme === theme ? ' active' : ''}`} onClick={() => { setActiveTheme(theme); setPlannerEntry({ mode: 'theme', theme }); document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} data-testid={`filter-theme-${theme.toLowerCase()}`} aria-pressed={activeTheme === theme}>
               <span><span className="theme-count">{String(index + 1).padStart(2, '0')} / {themeCount(theme)}</span><br /><span className="theme-name">{theme}</span></span><ArrowRight size={17} />
             </button>
@@ -146,6 +154,7 @@ function PublicApp() {
           {activeTheme !== 'All' && <button className="button-secondary" onClick={() => setActiveTheme('All')} data-testid="button-clear-filter">Show all walks <X size={14} /></button>}
         </div>
         <div className="tour-list">
+          {tourList.length === 0 && <p className="section-sub">There are no curated tours for this category yet. Use the planner above to build a walk from its published attractions.</p>}
           {tourList.map((tour, index) => (
             <article className="tour-card" key={tour.id} role="button" tabIndex={0} onClick={() => setSelected(tour)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelected(tour); }} data-testid={`card-tour-${tour.id}`}>
               <div><div className="tour-kicker">{tour.theme} · STARTS AT {tour.start}</div><h3>{tour.title}</h3><p>{tour.subtitle}</p><div className="tour-meta"><span><RouteIcon size={13} /> {tour.distanceKm.toFixed(1)} km</span><span><Clock3 size={13} /> {tour.minutes} min</span><span>{tour.stops.length} stops</span></div></div>

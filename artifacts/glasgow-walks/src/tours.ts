@@ -1,4 +1,6 @@
-export type Theme = 'Art' | 'Music' | 'History' | 'Sport';
+// Attraction categories are owner-managed; these remain the original tour categories.
+export type Theme = string;
+export const DEFAULT_CATEGORIES = ['Art', 'Music', 'History', 'Sport'];
 export type Stop = { name: string; place: string; lat: number; lon: number; story: string };
 export type Tour = {
   id: string;

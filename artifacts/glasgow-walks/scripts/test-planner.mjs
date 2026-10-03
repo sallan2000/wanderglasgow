@@ -88,6 +88,15 @@ try {
     assert(added.stops.length > 0 && added.stops.every(item => item.id.startsWith('admin-added-')), 'Themed planning consumes supplied live attractions');
     const addedNearby = await planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, liveCatalogue);
     assert(addedNearby.stops.length > 0 && addedNearby.stops.every(item => item.id.startsWith('admin-added-')), 'Nearby planning consumes supplied live attractions');
+    const customCatalogue = liveCatalogue.map(item => ({ ...item, theme: 'Food & drink' }));
+    const custom = await planAttractionWalk(origin, { theme: 'Food & drink', radiusKm: 2, maxStops: 3 }, undefined, customCatalogue);
+    assert(custom.stops.length > 0 && custom.stops.every(item => item.theme === 'Food & drink'), 'Custom category planning is not restricted to the original four categories');
+    const customNearby = await planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, customCatalogue);
+    assert(customNearby.stops.length > 0 && customNearby.stops.every(item => item.theme === 'Food & drink'), 'Nearby planning includes custom-category attractions');
+    await assert.rejects(planAttractionWalk(origin, { theme: '', radiusKm: 2, maxStops: 3 }, undefined, customCatalogue),
+      error => error.kind === 'location', 'Blank category is rejected');
+    await assert.rejects(planAttractionWalk(origin, { theme: 'Nature', radiusKm: 2, maxStops: 3 }, undefined, customCatalogue),
+      error => error.kind === 'empty', 'A category with no published matching attractions reports an empty result');
     await assert.rejects(planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, []),
       error => error.kind === 'empty', 'An empty live catalogue is never silently replaced with seeds');
     const beforeEmpty = requests;
@@ -104,7 +113,7 @@ try {
   } finally {
     globalThis.fetch = originalFetch;
   }
-  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, theme filtering, walking radius, cancellation and service errors.`);
+  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, original/custom category filtering, walking radius, cancellation and service errors.`);
   if (process.argv.includes('--live')) {
     const walk = await planAttractionWalk({ lat: 55.8605, lon: -4.2494 },
       { theme: 'All', radiusKm: 2, maxStops: 6 });

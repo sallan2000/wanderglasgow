@@ -29,7 +29,7 @@ create table if not exists public.glasgow_attractions (
   name text not null check (char_length(btrim(name)) between 2 and 200),
   description text not null check (char_length(btrim(description)) between 10 and 5000),
   place text not null default '' check (char_length(place) <= 300),
-  theme text not null check (theme in ('Art', 'Music', 'History', 'Sport')),
+  theme text not null,
   latitude double precision not null check (latitude between -90 and 90),
   longitude double precision not null check (longitude between -180 and 180),
   published boolean not null default true,
@@ -67,6 +67,40 @@ create policy "Authorised administrators manage attractions" on public.glasgow_a
   with check ((select public.is_attraction_admin()));
 
 -- The generated setup script appends the one-time catalogue seed and COMMIT.
+-- Custom attraction categories. Re-running this preserves attractions and admin access.
+-- Included in fresh setup.sql and in the standalone categories-upgrade.sql.
+create table if not exists public.glasgow_attraction_categories (
+  name text primary key check (
+    name = btrim(name) and char_length(name) between 2 and 40
+    and lower(name) <> 'all'
+  ),
+  created_at timestamptz not null default now()
+);
+create unique index if not exists glasgow_attraction_categories_name_unique
+  on public.glasgow_attraction_categories (lower(name));
+
+insert into public.glasgow_attraction_categories (name)
+  values ('Art'), ('Music'), ('History'), ('Sport')
+  on conflict do nothing;
+
+alter table public.glasgow_attraction_categories enable row level security;
+revoke all on public.glasgow_attraction_categories from public, anon, authenticated;
+grant select on public.glasgow_attraction_categories to anon, authenticated;
+grant insert on public.glasgow_attraction_categories to authenticated;
+
+drop policy if exists "Visitors read attraction categories" on public.glasgow_attraction_categories;
+create policy "Visitors read attraction categories" on public.glasgow_attraction_categories
+  for select to anon, authenticated using (true);
+drop policy if exists "Authorised administrators add categories" on public.glasgow_attraction_categories;
+create policy "Authorised administrators add categories" on public.glasgow_attraction_categories
+  for insert to authenticated with check ((select public.is_attraction_admin()));
+
+-- Upgrade the original four-value check to a reference to the shared category list.
+alter table public.glasgow_attractions drop constraint if exists glasgow_attractions_theme_check;
+alter table public.glasgow_attractions drop constraint if exists glasgow_attractions_theme_fkey;
+alter table public.glasgow_attractions add constraint glasgow_attractions_theme_fkey
+  foreign key (theme) references public.glasgow_attraction_categories(name)
+  on update cascade on delete restrict;
 do $seed$
 begin
   if not exists (select 1 from glasgow_walks_private.seed_history where seed_key = 'initial-catalogue') then

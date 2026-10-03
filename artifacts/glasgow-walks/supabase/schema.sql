@@ -29,7 +29,7 @@ create table if not exists public.glasgow_attractions (
   name text not null check (char_length(btrim(name)) between 2 and 200),
   description text not null check (char_length(btrim(description)) between 10 and 5000),
   place text not null default '' check (char_length(place) <= 300),
-  theme text not null check (theme in ('Art', 'Music', 'History', 'Sport')),
+  theme text not null,
   latitude double precision not null check (latitude between -90 and 90),
   longitude double precision not null check (longitude between -180 and 180),
   published boolean not null default true,

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { listManagedAttractions, deleteAttraction, CatalogueError, type ManagedAttraction } from './attraction-store';
+import { Pencil, Plus, RefreshCw, Tags, Trash2 } from 'lucide-react';
+import { listManagedAttractions, deleteAttraction, listAttractionCategories, sortCategoryNames, CategorySetupError, CatalogueError, type ManagedAttraction } from './attraction-store';
 import AdminEditor from './AdminEditor';
+import AdminCategories from './AdminCategories';
+import { DEFAULT_CATEGORIES } from './tours';
 
 type Editing = { item?: ManagedAttraction; key: number } | null;
 type Props = { onSignOut: () => void };
@@ -22,6 +24,12 @@ export default function AdminManager({ onSignOut }: Props) {
   const [delErr, setDelErr] = useState('');
   const [note, setNote] = useState('');
   const [fresh, setFresh] = useState('');
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoryError, setCategoryError] = useState('');
+  const [categoryNeedsSetup, setCategoryNeedsSetup] = useState(false);
+  const categorySeq = useRef(0);
   const alive = useRef(true);
   const seq = useRef(0);
   const keyN = useRef(0);
@@ -40,6 +48,32 @@ export default function AdminManager({ onSignOut }: Props) {
     } finally { if (alive.current && n === seq.current) setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  const loadCategories = useCallback(async () => {
+    const n = ++categorySeq.current;
+    setCategoriesLoading(true);
+    try {
+      const names = await listAttractionCategories();
+      if (alive.current && n === categorySeq.current) {
+        setCategories(names); setCategoryError(''); setCategoryNeedsSetup(false);
+      }
+    } catch (e) {
+      if (alive.current && n === categorySeq.current) {
+        setCategoryError(e instanceof CatalogueError ? e.message : 'Categories could not be loaded. Try again.');
+        setCategoryNeedsSetup(e instanceof CategorySetupError);
+      }
+    } finally { if (alive.current && n === categorySeq.current) setCategoriesLoading(false); }
+  }, []);
+  useEffect(() => { void loadCategories(); }, [loadCategories]);
+
+  const categoryAdded = (name: string) => {
+    if (!alive.current) return;
+    categorySeq.current++;
+    setCategoriesLoading(false);
+    setCategoryError(''); setCategoryNeedsSetup(false);
+    setCategories(current => sortCategoryNames([...current, name]));
+  };
+  const categoryOptions = useMemo(() => sortCategoryNames([...categories, ...items.map(item => item.theme)]), [categories, items]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -99,14 +133,20 @@ export default function AdminManager({ onSignOut }: Props) {
       <div className="adm-head">
         <div><div className="eyebrow">Attraction catalogue</div><h1>Places on the map</h1></div>
         <div className="adm-acts">
-          <button className="adm-btn" onClick={() => void load()} disabled={loading} data-testid="button-refresh"><RefreshCw size={15} /> Refresh</button>
+          <button className="adm-btn" onClick={() => { void load(); void loadCategories(); }} disabled={loading} data-testid="button-refresh"><RefreshCw size={15} /> Refresh</button>
+          <button className="adm-btn" aria-expanded={categoriesOpen} aria-controls="admin-categories" onClick={() => {
+            setCategoriesOpen(!categoriesOpen);
+            if (!categoriesOpen) void loadCategories();
+          }} data-testid="button-manage-categories"><Tags size={15} /> Manage categories</button>
           <button className="adm-btn pri" onClick={() => open()} data-testid="button-add-attraction"><Plus size={15} /> Add attraction</button>
         </div>
       </div>
+      {categoriesOpen && <AdminCategories categories={categories} loading={categoriesLoading} error={categoryError}
+        needsSetup={categoryNeedsSetup} onAdded={categoryAdded} onRefresh={() => void loadCategories()} onClose={() => setCategoriesOpen(false)} />}
       <div className="adm-tools">
         <input className="adm-in" type="search" placeholder="Search by name or address" aria-label="Search attractions" value={q} onChange={(e) => setQ(e.target.value)} data-testid="input-search" />
-        <select className="adm-in" aria-label="Filter by theme" value={theme} onChange={(e) => setTheme(e.target.value)} data-testid="select-theme-filter">
-          {['All', 'Art', 'Music', 'History', 'Sport'].map((t) => <option key={t}>{t}</option>)}
+        <select className="adm-in" aria-label="Filter by category" value={theme} onChange={(e) => setTheme(e.target.value)} data-testid="select-theme-filter">
+          {['All', ...categoryOptions].map((t) => <option key={t}>{t}</option>)}
         </select>
         <select className="adm-in" aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="select-status-filter">
           {['All', 'Published', 'Draft'].map((t) => <option key={t}>{t}</option>)}
@@ -143,7 +183,7 @@ export default function AdminManager({ onSignOut }: Props) {
       {editing && (
         <div className="adm-ov" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }} data-testid="overlay-editor">
           <section className="adm-drawer" role="dialog" aria-modal="true" aria-label="Attraction editor">
-            <AdminEditor key={editing.key} item={editing.item} onSaved={onSaved} onRequestClose={close} onDirty={onDirty} />
+            <AdminEditor key={editing.key} item={editing.item} categories={categoryOptions} onSaved={onSaved} onRequestClose={close} onDirty={onDirty} />
           </section>
         </div>
       )}
