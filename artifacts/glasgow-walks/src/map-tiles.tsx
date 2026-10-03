@@ -46,18 +46,30 @@ export function useMapTiles() {
   return { attach, failed, retrying, retry };
 }
 
-export function MapTileNotice({ tiles, preserved, testId }: {
+export function MapTileNotice({
+  tiles,
+  preserved,
+  testId,
+  noticeTestId = `status-${testId}-tiles-error`,
+  className = 'planner-msg',
+  retryClassName = 'chip',
+  retryLabel,
+}: {
   tiles: ReturnType<typeof useMapTiles>;
   preserved: string;
   testId: string;
+  noticeTestId?: string;
+  className?: string;
+  retryClassName?: string;
+  retryLabel?: string;
 }) {
   if (!tiles.failed) return null;
   return (
-    <div className="planner-msg" role="alert" data-testid={`status-${testId}-tiles-error`}>
+    <div className={className} role="alert" data-testid={noticeTestId}>
       OpenStreetMap background tiles could not load. Check your connection or try again later. {preserved}
       <div style={{ marginTop: 10 }}>
-        <button type="button" className="chip" onClick={tiles.retry} disabled={tiles.retrying} data-testid={`button-${testId}-tiles-retry`}>
-          {tiles.retrying ? 'Retrying background…' : 'Retry map background'}
+        <button type="button" className={retryClassName} onClick={tiles.retry} disabled={tiles.retrying} data-testid={`button-${testId}-tiles-retry`}>
+          {retryLabel ?? (tiles.retrying ? 'Retrying background…' : 'Retry map background')}
         </button>
       </div>
     </div>
