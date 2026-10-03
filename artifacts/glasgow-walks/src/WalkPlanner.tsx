@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LocateFixed, Navigation } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
+import { MapTileNotice, useMapTiles } from './map-tiles';
 import { planAttractionWalk, WalkPlanningError, SEARCH_RADII_KM, defaultWalkLimitKm, type PlannedWalk } from './walk-planner';
 import type { Theme } from './tours';
 import type { Position } from './attractions';
@@ -37,6 +38,9 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const [catalogueNotice, setCatalogueNotice] = useState('');
   const [plan, setPlan] = useState<PlannedWalk | null>(null);
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [mapFailure, setMapFailure] = useState<'library' | 'construction'>('library');
+  const [mapAttempt, setMapAttempt] = useState(0);
+  const tiles = useMapTiles();
   const run = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const mapEl = useRef<HTMLDivElement>(null);
@@ -93,12 +97,16 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     setMapStatus('loading');
     let active = true;
     let map: any;
+    let constructed = false;
+    let detachTiles: (() => void) | undefined;
+    let resize: ReturnType<typeof setTimeout> | undefined;
     loadLeaflet().then((L) => {
       if (!active || !mapEl.current) return;
       // Initialise the view before mixed vector layers create their renderers.
-      map = L.map(mapEl.current, { scrollWheelZoom: false })
-        .setView([plan.origin.lat, plan.origin.lon], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      constructed = true;
+      map = L.map(mapEl.current, { scrollWheelZoom: false });
+      map.setView([plan.origin.lat, plan.origin.lon], 14);
+      detachTiles = tiles.attach(L, map);
       const line = L.geoJSON(plan.geometry, { style: { color: '#183a36', weight: 5, opacity: 0.9 } }).addTo(map);
        const tooltip = (text: string) => { const node = document.createElement('span'); node.textContent = text; return node; };
        plan.nearby.filter((n) => !n.included).forEach((n) => L.circleMarker([n.lat, n.lon], { radius: 5, color: '#6b7e76', weight: 2, fillColor: '#e9e4d7', fillOpacity: 1 }).addTo(map).bindTooltip(tooltip(`${n.name} (not on route)`)));
@@ -106,10 +114,14 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
        plan.stops.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', html: `<div class="plan-pin">${i + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map).bindTooltip(tooltip(`${i + 1}. ${s.name}`)));
       map.fitBounds(line.getBounds(), { padding: [30, 30] });
       setMapStatus('ready');
-      setTimeout(() => map?.invalidateSize(), 100);
-    }).catch(() => { if (active) setMapStatus('error'); });
-    return () => { active = false; map?.remove(); };
-  }, [plan]);
+      resize = setTimeout(() => { if (active) map?.invalidateSize(); }, 100);
+    }).catch(() => {
+      if (!active) return;
+      detachTiles?.(); map?.remove(); map = null;
+      setMapFailure(constructed ? 'construction' : 'library'); setMapStatus('error');
+    });
+    return () => { active = false; clearTimeout(resize); detachTiles?.(); map?.remove(); };
+  }, [plan, mapAttempt, tiles.attach]);
 
   const busy = status === 'locating' || status === 'planning';
 
@@ -208,7 +220,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
           </div>
           <div>
             {mapStatus === 'loading' && <p className="planner-note" role="status" data-testid="status-plan-map-loading">Loading the interactive map…</p>}
-            {mapStatus === 'error' && <p className="planner-msg" role="alert" data-testid="status-plan-map-error">The route was calculated, but the interactive map could not load. Check your connection; the ordered attraction list remains available.</p>}
+            {mapStatus === 'error' && <div className="planner-msg" role="alert" data-testid="status-plan-map-error">
+              {mapFailure === 'library' ? 'The map library or styles could not load. Check your connection.' : 'The interactive map could not be initialized. This is not a background-tile failure.'} Your calculated walk and ordered attraction list remain available.
+              <div style={{ marginTop: 10 }}><button type="button" className="chip" onClick={() => setMapAttempt(n => n + 1)} data-testid="button-plan-map-retry">Retry map</button></div>
+            </div>}
+            {mapStatus === 'ready' && <MapTileNotice tiles={tiles} preserved="Your route, start location and stop markers remain on the map, and the ordered attraction list is still available." testId="plan-map" />}
             <div className="plan-map" ref={mapEl} data-testid="map-plan" style={mapStatus === 'error' ? { display: 'none' } : undefined} />
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, Clock3, LocateFixed, MapPin, Navigation, Route as RouteIcon, X } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
+import { MapTileNotice, useMapTiles } from './map-tiles';
 import WalkPlanner from './WalkPlanner';
 import AdminPortal from './AdminPortal';
 import { type Tour, type Theme } from './tours';
@@ -228,6 +229,9 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
   const mapInstance = useRef<any>(null);
   const routeLayer = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapFailure, setMapFailure] = useState<'library' | 'construction' | null>(null);
+  const [mapAttempt, setMapAttempt] = useState(0);
+  const tiles = useMapTiles();
   const [routeState, setRouteState] = useState<'idle' | 'locating' | 'routing' | 'ready' | 'error'>('idle');
   const [routeError, setRouteError] = useState('');
   const [routeInfo, setRouteInfo] = useState('');
@@ -236,16 +240,19 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
 
   useEffect(() => {
     let active = true;
+    let constructed = false;
+    let detachTiles: (() => void) | undefined;
+    let resize: ReturnType<typeof setTimeout> | undefined;
     routeRun.current++; routeAbort.current?.abort();
-    setMapLoaded(false); setRouteState('idle'); setRouteError(''); setRouteInfo('');
+    setMapLoaded(false); setMapFailure(null); setRouteState('idle'); setRouteError(''); setRouteInfo('');
     routeLayer.current = null;
     loadLeaflet().then((L) => {
       if (!active || !mapRef.current || mapInstance.current) return;
-      const map = L.map(mapRef.current, { scrollWheelZoom: false, zoomControl: true, attributionControl: true }).setView([tour.stops[0].lat, tour.stops[0].lon], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>',
-      }).addTo(map);
+      constructed = true;
+      const map = L.map(mapRef.current, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
+      mapInstance.current = map;
+      map.setView([tour.stops[0].lat, tour.stops[0].lon], 14);
+      detachTiles = tiles.attach(L, map);
       const bounds: [number, number][] = [];
       tour.stops.forEach((stop, index) => {
         const point: [number, number] = [stop.lat, stop.lon];
@@ -259,12 +266,14 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
       map.fitBounds(bounds, { padding: [34, 34] });
       mapInstance.current = map;
       setMapLoaded(true);
-      window.setTimeout(() => map.invalidateSize(), 100);
+      resize = setTimeout(() => { if (active) map.invalidateSize(); }, 100);
     }).catch(() => {
-      if (active) setRouteError('The interactive map could not load. Check your connection and use the stop list below.');
+      if (!active) return;
+      detachTiles?.(); mapInstance.current?.remove(); mapInstance.current = null;
+      setMapFailure(constructed ? 'construction' : 'library');
     });
-    return () => { active = false; routeRun.current++; routeAbort.current?.abort(); if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [tour]);
+    return () => { active = false; clearTimeout(resize); detachTiles?.(); routeRun.current++; routeAbort.current?.abort(); if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
+  }, [tour, mapAttempt, tiles.attach]);
 
   const beginRoute = async (useGps = true) => {
     const run = ++routeRun.current;
@@ -333,12 +342,17 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
         <div className="drawer-stats"><span><RouteIcon size={14} /> {tour.distanceKm.toFixed(1)} km approx.</span><span><Clock3 size={14} /> {tour.minutes} min walking</span><span><MapPin size={14} /> {tour.stops.length} stops</span></div>
 
         <div className="map-wrap">
-          {!mapLoaded && <div className="map-loading" data-testid="status-map-loading">{routeError || 'Loading OpenStreetMap…'}</div>}
+          {!mapLoaded && !mapFailure && <div className="map-loading" role="status" data-testid="status-map-loading">Loading the interactive map…</div>}
           <div className="map-canvas" ref={mapRef} data-testid="map-tour" />
           {(routeState === 'locating' || routeState === 'routing') && <div className="map-status" role="status" data-testid="status-route-loading">{routeState === 'locating' ? 'Waiting for your location permission…' : 'Finding a route on the walking network…'}</div>}
           {routeInfo && <div className="map-status" data-testid="status-route-ready">{routeInfo}</div>}
           {routeError && routeState === 'error' && <div className="map-status routing-error" role="alert" data-testid="status-route-error">{routeError}</div>}
         </div>
+        {mapFailure && <div className="planner-msg" role="alert" data-testid="status-tour-map-error">
+          {mapFailure === 'library' ? 'The map library or styles could not load. Check your connection.' : 'The interactive map could not be initialized. This is not a background-tile failure.'} The ordered stop list remains available below.
+          <div style={{ marginTop: 10 }}><button type="button" className="chip" onClick={() => setMapAttempt(n => n + 1)} data-testid="button-tour-map-retry">Retry map</button></div>
+        </div>}
+        {mapLoaded && <MapTileNotice tiles={tiles} preserved="Your stop markers and any calculated walking route remain on the map. Routing and the stop list are still available." testId="tour-map" />}
         <div className="map-credit">Map tiles © OpenStreetMap contributors · The dashed overview line is a stop-order guide, not pedestrian routing.</div>
         <div className="route-actions">
           <button className="button-primary" onClick={() => beginRoute(true)} disabled={!mapLoaded || routeState === 'locating' || routeState === 'routing'} data-testid="button-start-walking-route">
