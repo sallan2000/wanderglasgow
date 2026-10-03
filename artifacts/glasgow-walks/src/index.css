@@ -476,12 +476,8 @@ button { cursor: pointer; }
 .hero-footnote {font:11px var(--app-font-mono);color:var(--ink-soft);margin-top:23px;}
 .hero-art { align-self:center;position:relative;min-height:400px;display:grid;place-items:center; }
 .map-illustration {width:min(100%,470px);height:390px;border-radius:48% 52% 46% 54% / 49% 42% 58% 51%;background:#e2e8d3;position:relative;overflow:hidden;transform:rotate(-4deg);box-shadow:inset 0 0 0 1px #cfd8c3; }
-.map-illustration:before,.map-illustration:after {content:"";position:absolute;border:1px solid #bccab8;border-radius:50%;width:135%;height:70%;left:-10%;top:15%;transform:rotate(34deg);}
-.map-illustration:after {width:125%;height:86%;top:7%;left:-9%;transform:rotate(-25deg);border-color:#c8d2bf;}
-.map-river {position:absolute;background:#b6cfd0;width:120%;height:52px;top:55%;left:-10%;transform:rotate(-27deg);border:1px solid #a5c2c4; }
-.map-road {position:absolute;height:2px;background:#f8f4e8;z-index:1;transform-origin:left;box-shadow:0 0 0 1px #d3d8c7;}
-.road-a {width:120%;top:26%;left:-3%;transform:rotate(31deg)}.road-b{width:120%;top:75%;left:-4%;transform:rotate(-12deg)}.road-c{width:100%;top:12%;left:57%;transform:rotate(78deg)}
-.map-label {position:absolute;font:10px var(--app-font-mono);letter-spacing:.06em;text-transform:uppercase;color:#597368;z-index:2;transform:rotate(4deg);}
+.map-artwork {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.map-label {position:absolute;font:10px var(--app-font-mono);letter-spacing:.06em;text-transform:uppercase;color:#34524a;z-index:2;transform:rotate(4deg);background:#f5f2e9d9;padding:3px 5px;border-radius:2px;}
 .loc-1{top:24%;left:18%}.loc-2{top:67%;left:64%}.loc-3{top:44%;left:72%}
 .route-dash {position:absolute;z-index:3;left:18%;top:29%;width:54%;height:45%;border:2px dashed var(--orange);border-color:var(--orange) transparent transparent var(--orange);border-radius:65% 20% 30% 10%;transform:rotate(20deg);}
 .map-pin {position:absolute;z-index:4;width:25px;height:25px;border-radius:50% 50% 50% 5px;background:var(--orange);border:3px solid var(--paper);transform:rotate(-45deg);box-shadow:0 3px 8px #394f3c55;}

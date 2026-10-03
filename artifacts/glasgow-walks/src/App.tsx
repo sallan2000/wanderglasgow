@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, Clock3, LocateFixed, MapPin, Navigation, Route as RouteIcon, X } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
 import { MapTileNotice, useMapTiles } from './map-tiles';
+import glasgowMapArtwork from './assets/wander-glasgow-map.png';
 import WalkPlanner from './WalkPlanner';
 import AdminPortal from './AdminPortal';
 import { type Tour, type Theme } from './tours';
@@ -128,11 +129,10 @@ function PublicApp() {
           </div>
           <div className="hero-footnote">MADE FOR WANDERING · NO APP REQUIRED</div>
         </div>
-        <div className="hero-art" aria-label="Illustrated map of Glasgow and a walking route">
+        <div className="hero-art" role="img" aria-label="Illustrated Glasgow street map with the River Clyde, a walking route, and landmark markers">
           <div className="circle-note">GOOD<br />STORIES<br />AHEAD</div>
           <div className="map-illustration">
-            <div className="map-river" />
-            <div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" />
+            <img className="map-artwork" src={glasgowMapArtwork} alt="" />
             <div className="map-label loc-1">Kelvingrove</div><div className="map-label loc-2">The Barras</div><div className="map-label loc-3">City Centre</div>
             <div className="route-dash" /><div className="map-pin pin-one" /><div className="map-pin pin-two" />
             <div className="map-stamp">YOUR CITY<br />YOUR PACE</div>
