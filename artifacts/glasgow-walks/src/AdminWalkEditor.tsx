@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { ArrowDown, ArrowUp, Eye, Plus, Ruler, Save, Send, Trash2, X } from 'lucide-react';
-import { saveWalk, measureCuratedWalk, type ManagedWalk } from './walk-store';
+import { saveWalk, measureCuratedWalk, type ManagedWalk, type WalkGeometry } from './walk-store';
+import AdminWalkMap from './AdminWalkMap';
 import { CatalogueError, type ManagedAttraction } from './attraction-store';
 import type { Stop } from './tours';
 import './admin-walks.css';
@@ -67,6 +68,11 @@ export default function AdminWalkEditor({ walk, categories, attractions, attract
   const [tried, setTried] = useState(false);
   const [q, setQ] = useState('');
   const [preview, setPreview] = useState(false);
+  const [route, setRoute] = useState<{ key: string; geometry: WalkGeometry } | null>(null);
+  const [routeError, setRouteError] = useState('');
+  const routeKey = JSON.stringify(stops.map(s => [s.uid, s.lat, s.lon]));
+  const currentRouteKey = useRef(routeKey);
+  currentRouteKey.current = routeKey;
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const mounted = useRef(true);
   const ctrl = useRef<AbortController | null>(null);
@@ -96,7 +102,16 @@ export default function AdminWalkEditor({ walk, categories, attractions, attract
   const invalidate = () => {
     ctrl.current?.abort(); measureSeq.current++; setMeasuring(false);
     setMetrics({ km: 0, min: 0 }); setMetricsOk(false);
+    setRoute(null); setRouteError('');
   };
+  // Guard coordinate changes as well as add/remove/reorder actions.
+  const previousRouteKey = useRef(routeKey);
+  useEffect(() => {
+    if (previousRouteKey.current !== routeKey) {
+      previousRouteKey.current = routeKey;
+      invalidate();
+    }
+  }, [routeKey]);
   const changeStops = (fn: (s: Row[]) => Row[]) => { setStops(fn); invalidate(); };
   const add = (a: ManagedAttraction) => {
     if (stops.length >= 30 || stops.some(s => stopKey(s) === stopKey(a))) return;
@@ -111,14 +126,19 @@ export default function AdminWalkEditor({ walk, categories, attractions, attract
     ctrl.current?.abort();
     const c = new AbortController(); ctrl.current = c;
     const n = ++measureSeq.current;
-    setMeasuring(true); setErr('');
+    const key = routeKey;
+    setMeasuring(true); setErr(''); setRouteError('');
     try {
       const r = await measureCuratedWalk(plain(), c.signal);
-      if (!mounted.current || n !== measureSeq.current) return null;
+      if (!mounted.current || c.signal.aborted || n !== measureSeq.current || key !== currentRouteKey.current) return null;
       setMetrics({ km: r.distanceKm, min: r.minutes }); setMetricsOk(true);
+      setRoute({ key, geometry: r.geometry });
       return r;
     } catch (e) {
-      if (mounted.current && n === measureSeq.current && !c.signal.aborted) setErr(e instanceof CatalogueError ? e.message : 'The walking route could not be measured. Try again.');
+      if (mounted.current && n === measureSeq.current && key === currentRouteKey.current && !c.signal.aborted) {
+        const message = e instanceof CatalogueError ? e.message : 'The walking route could not be measured. Try again.';
+        setErr(message); setRouteError(message); setRoute(null);
+      }
       return null;
     } finally { if (mounted.current && n === measureSeq.current) setMeasuring(false); }
   };
@@ -242,8 +262,23 @@ export default function AdminWalkEditor({ walk, categories, attractions, attract
               <p className="adm-hint" style={{ flexBasis: '100%', margin: 0 }}>Walking-network distance and time between stops, in order, starting at the first stop with no GPS and no return loop. Time spent at stops is excluded. Changing the stops resets the measurement; publishing requires a current one.</p>
             </div>
 
-            {stops.length > 0 && <button type="button" className="adm-btn" aria-expanded={preview} onClick={() => setPreview(p => !p)} data-testid="walk-button-preview"><Eye size={15} /> {preview ? 'Hide preview' : 'Preview stop list'}</button>}
-            {preview && <ol className="walk-preview" data-testid="walk-list-preview">{stops.map(s => <li key={s.uid}><strong>{s.name}</strong><br />{s.story}</li>)}</ol>}
+            {(stops.length > 0 || preview) && <button type="button" className="adm-btn" aria-expanded={preview} aria-controls="walk-preview" onClick={() => {
+              setPreview(p => !p);
+              if (!preview && stops.length >= 2 && route?.key !== routeKey && !measuring) void measure();
+            }} data-testid="walk-button-preview"><Eye size={15} /> {preview ? 'Hide preview' : 'Preview map & stops'}</button>}
+            {preview && <section id="walk-preview" className="walk-preview-section" aria-label="Walk preview">
+              <h3>Map preview</h3>
+              <AdminWalkMap stops={stops} geometry={route?.key === routeKey ? route.geometry : null} />
+              <div aria-live="polite" data-testid="walk-status-route-preview">
+                {measuring ? <p className="adm-hint" role="status">Calculating the walking-network route…</p>
+                  : routeError ? <div className="adm-msg err" role="alert">{routeError}</div>
+                  : route?.key === routeKey ? <p className="adm-hint">Walking route shown in stop order · {metrics.km.toFixed(1)} km · {metrics.min} min.</p>
+                  : <p className="adm-hint">{stops.length < 2 ? 'Add at least 2 stops to preview a walking route.' : 'Stops changed or no route has been loaded. Measure the walk to show the current walking route. Saved distance alone does not include a map route.'}</p>}
+              </div>
+              {stops.length >= 2 && !measuring && route?.key !== routeKey && <button type="button" className="adm-btn" onClick={() => void measure()} data-testid="walk-button-preview-route">{routeError ? 'Retry walking route' : 'Calculate walking route'}</button>}
+              <h3>Ordered stops</h3>
+              <ol className="walk-preview" data-testid="walk-list-preview">{stops.map(s => <li key={s.uid}><strong>{s.name}</strong><br />{s.story}</li>)}</ol>
+            </section>}
 
             <div aria-live="polite">{err && <div className="adm-msg err" role="alert" data-testid="walk-status-save-error">{err}</div>}</div>
             <div className="adm-bar">

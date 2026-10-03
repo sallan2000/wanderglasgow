@@ -78,14 +78,24 @@ try {
   const originalFetch = globalThis.fetch;
   try {
     let requested;
+    const geometry = { type: 'LineString', coordinates: [[-4.25, 55.86], [-4.251, 55.861], [-4.26, 55.87]] };
     globalThis.fetch = async (url, options) => {
       requested = String(url);
       if (options.signal.aborted) throw new DOMException('Cancelled.', 'AbortError');
-      return Response.json({ code: 'Ok', routes: [{ distance: 2876, duration: 1842 }] });
+      return Response.json({ code: 'Ok', routes: [{ distance: 2876, duration: 1842, geometry }] });
     };
     const metrics = await store.measureCuratedWalk(input.stops);
-    assert.deepEqual(metrics, { distanceKm: 2.876, minutes: 31 });
+    assert.deepEqual(metrics, { distanceKm: 2.876, minutes: 31, geometry });
     assert(requested.includes(input.stops.map(s => `${s.lon},${s.lat}`).join(';')), 'Route calculation preserves the chosen stop order');
+    assert(requested.includes('overview=full&geometries=geojson'), 'Preview requests full walking-network geometry');
+    for (const bad of [undefined, { type: 'Point', coordinates: [-4, 55] },
+      { type: 'LineString', coordinates: [[-4, 55]] },
+      { type: 'LineString', coordinates: [[-4, 55], [181, 55]] },
+      { type: 'LineString', coordinates: [[-4, 55], ['-4', 55]] }]) {
+      globalThis.fetch = async () => Response.json({ code: 'Ok', routes: [{ distance: 2876, duration: 1842, geometry: bad }] });
+      await assert.rejects(store.measureCuratedWalk(input.stops), /no straight-line estimate/, 'Invalid geometry cannot count as a successful measurement');
+    }
+    await assert.rejects(store.measureCuratedWalk([{ ...input.stops[0], lat: NaN }, input.stops[1]]), /valid map coordinates/);
     globalThis.fetch = async () => new Response('Unavailable', { status: 503 });
     await assert.rejects(store.measureCuratedWalk(input.stops), /no straight-line estimate/);
     globalThis.fetch = async (_, options) => {
@@ -94,6 +104,13 @@ try {
     };
     const controller = new AbortController(); controller.abort();
     await assert.rejects(store.measureCuratedWalk(input.stops, controller.signal), error => error.name === 'AbortError');
+    globalThis.fetch = (_, options) => new Promise((_, reject) => {
+      options.signal.addEventListener('abort', () => reject(new DOMException('Cancelled.', 'AbortError')), { once: true });
+    });
+    const inFlight = new AbortController();
+    const pending = store.measureCuratedWalk(input.stops, inFlight.signal);
+    inFlight.abort();
+    await assert.rejects(pending, error => error.name === 'AbortError', 'Stop edits cancel an in-flight routing request');
   } finally { globalThis.fetch = originalFetch; }
-  console.log('Curated-walk checks passed: input validation, ordered snapshots, publication queries, setup-only fallback, empty/error states, conflict-safe CRUD, network metrics and cancellation. No remote database was modified.');
+  console.log('Curated-walk checks passed: input validation, ordered snapshots, publication queries, setup-only fallback, empty/error states, conflict-safe CRUD, network metrics and geometry, malformed routes and cancellation. No remote database was modified.');
 } finally { await rm(dir, { recursive: true, force: true }); }

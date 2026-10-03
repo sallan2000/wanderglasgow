@@ -82,8 +82,13 @@ export async function deleteWalk(existing: ManagedWalk): Promise<void> {
   if (error) fail(error);
   if (!data?.length) throw new CatalogueError('This walk changed or you no longer have permission. Refresh before deleting again.');
 }
-export async function measureCuratedWalk(stops: Stop[], signal?: AbortSignal): Promise<{ distanceKm: number; minutes: number }> {
+export type WalkGeometry = { type: 'LineString'; coordinates: [number, number][] };
+export type WalkMeasurement = { distanceKm: number; minutes: number; geometry: WalkGeometry };
+
+export async function measureCuratedWalk(stops: Stop[], signal?: AbortSignal): Promise<WalkMeasurement> {
   if (stops.length < 2 || stops.length > 30) throw new CatalogueError('Choose 2–30 ordered stops before calculating a route.');
+  if (stops.some(s => !Number.isFinite(s.lat) || !Number.isFinite(s.lon) || Math.abs(s.lat) > 90 || Math.abs(s.lon) > 180))
+    throw new CatalogueError('Every stop needs valid map coordinates before calculating a route.');
   const coordinates = stops.map(s => `${s.lon},${s.lat}`).join(';');
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -91,14 +96,17 @@ export async function measureCuratedWalk(stops: Stop[], signal?: AbortSignal): P
   if (signal?.aborted) abort();
   const timeout = setTimeout(abort, 30000);
   try {
-    const response = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coordinates}?overview=false`, { signal: controller.signal });
+    const response = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coordinates}?overview=full&geometries=geojson`, { signal: controller.signal });
     if (!response.ok) throw new Error('Routing unavailable');
     const result = await response.json();
     const route = result.routes?.[0];
     if (result.code !== 'Ok' || !Number.isFinite(route?.distance) || route.distance <= 0 ||
-      !Number.isFinite(route?.duration) || route.duration <= 0 || route.distance > 100000 || route.duration > 600000)
+      !Number.isFinite(route?.duration) || route.duration <= 0 || route.distance > 100000 || route.duration > 600000 ||
+      route.geometry?.type !== 'LineString' || !Array.isArray(route.geometry.coordinates) || route.geometry.coordinates.length < 2 ||
+      route.geometry.coordinates.some((p: unknown) => !Array.isArray(p) || p.length !== 2 ||
+        !Number.isFinite(p[0]) || !Number.isFinite(p[1]) || Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90))
       throw new Error('No valid walking route');
-    return { distanceKm: Math.round(route.distance) / 1000, minutes: Math.ceil(route.duration / 60) };
+    return { distanceKm: Math.round(route.distance) / 1000, minutes: Math.ceil(route.duration / 60), geometry: route.geometry };
   } catch {
     if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
     throw new CatalogueError('The walking service could not calculate this stop order. Try again; no straight-line estimate has been substituted.');

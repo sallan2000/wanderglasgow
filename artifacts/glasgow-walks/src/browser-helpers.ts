@@ -2,28 +2,49 @@ declare global {
   interface Window { L?: any; }
 }
 
-export function loadLeaflet() {
+let leafletLoad: Promise<any> | null = null;
+
+export function loadLeaflet(): Promise<any> {
+  if (leafletLoad) return leafletLoad;
   if (window.L) return Promise.resolve(window.L);
-  return new Promise<any>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('[data-leaflet]');
-    if (existing) {
-      existing.addEventListener('load', () => window.L ? resolve(window.L) : reject(new Error('Map library unavailable')));
-      existing.addEventListener('error', () => reject(new Error('Could not load map library')));
-      return;
-    }
+  leafletLoad = new Promise<any>((resolve, reject) => {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
     css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(css);
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.async = true;
     script.dataset.leaflet = 'true';
-    script.onload = () => window.L ? resolve(window.L) : reject(new Error('Map library unavailable'));
-    script.onerror = () => reject(new Error('Could not load map library'));
-    script.addEventListener('error', () => script.remove(), { once: true });
+    let styled = false, loaded = false, settled = false;
+    const cleanup = () => {
+      clearTimeout(timeout);
+      script.onload = script.onerror = css.onload = css.onerror = null;
+    };
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true; cleanup();
+      script.remove(); css.remove();
+      // A CSS failure may occur after the script has set window.L.
+      delete window.L;
+      reject(new Error(message));
+    };
+    const ready = () => {
+      if (settled || !styled || !loaded) return;
+      if (!window.L) { fail('Map library unavailable'); return; }
+      settled = true; cleanup(); resolve(window.L);
+    };
+    const timeout = setTimeout(() => fail('Map library loading timed out'), 15000);
+    css.onload = () => { styled = true; ready(); };
+    css.onerror = () => fail('Could not load map styles');
+    script.onload = () => { loaded = true; ready(); };
+    script.onerror = () => fail('Could not load map library');
+    document.head.appendChild(css);
     document.head.appendChild(script);
+  }).catch(error => {
+    leafletLoad = null; // Allow a later Retry map to start a fresh load.
+    throw error;
   });
+  return leafletLoad;
 }
 
 export function getPosition(): Promise<{ lat: number; lon: number }> {
