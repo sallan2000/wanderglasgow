@@ -24,6 +24,8 @@ export const authFixture = {
   resetRequests: [] as AuthCall[],
   passwordUpdates: [] as PasswordCall[],
   signInRequests: [] as SignInCall[],
+  authEvents: [] as string[],
+  adminChecks: [] as boolean[],
 };
 
 if (typeof window !== 'undefined') {
@@ -39,6 +41,7 @@ export const initialPasswordRecovery = typeof window !== 'undefined' &&
 export class CatalogueError extends Error {}
 
 export async function checkAdmin() {
+  authFixture.adminChecks.push(true);
   return true;
 }
 
@@ -47,7 +50,12 @@ export const supabase = {
     async getSession() {
       return { data: { session: sessionForUrl() }, error: null };
     },
-    onAuthStateChange(_callback: (event: string, session: typeof testSession | null) => void) {
+    onAuthStateChange(callback: (event: string, session: typeof testSession | null) => void) {
+      const mockAuthEvent = params().get('mockAuthEvent');
+      if (mockAuthEvent) {
+        authFixture.authEvents.push(mockAuthEvent);
+        callback(mockAuthEvent, sessionForUrl());
+      }
       return { data: { subscription: { unsubscribe() {} } } };
     },
     async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {

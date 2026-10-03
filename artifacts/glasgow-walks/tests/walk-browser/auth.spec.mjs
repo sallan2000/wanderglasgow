@@ -155,6 +155,18 @@ test('admin auth accepts a recovery URL and moves to the admin portal after pass
   ]);
 });
 
+test('admin auth opens recovery from PASSWORD_RECOVERY after the URL marker is gone', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html?mockAuthEvent=PASSWORD_RECOVERY');
+
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+  expect(page.url()).not.toContain('type=recovery');
+  await expect.poll(() => page.evaluate(() => window.authFixture.authEvents)).toEqual([
+    'PASSWORD_RECOVERY',
+  ]);
+  await expect.poll(() => page.evaluate(() => window.authFixture.adminChecks)).toEqual([]);
+  await expect(page.getByRole('heading', { name: 'Checking your access' })).toHaveCount(0);
+});
+
 test('admin auth reports an expired recovery link and keeps the password form available', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html?update=expired#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
