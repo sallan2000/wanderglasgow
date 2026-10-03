@@ -67,6 +67,30 @@ test('a late list refresh cannot overwrite a successfully saved walk', async ({ 
   await verify();
 });
 
+test('a late list refresh cannot restore a successfully deleted walk', async ({ page }) => {
+  const verify = await isolateWalkList(page);
+  const deleted = walk('walk-a', 'Riverside Route');
+  const remaining = walk('walk-b', 'Museum Loop', 'Museums');
+  await loadRows(page, [deleted, remaining]);
+
+  await page.getByTestId('walk-button-refresh').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.listRequests.length)).toBe(2);
+
+  await page.getByTestId('walk-button-delete-walk-a').click();
+  await page.getByTestId('walk-button-confirm-delete').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.deleteRequests.length)).toBe(1);
+  await page.evaluate(() => window.walkListFixture.resolveDelete(0));
+
+  await expect(page.getByTestId('walk-row-walk-a')).toHaveCount(0);
+  await expect(page.getByTestId('walk-row-walk-b')).toBeVisible();
+  await expect(page.getByTestId('walk-status-note')).toHaveText('Riverside Route was deleted.');
+
+  await page.evaluate(rows => window.walkListFixture.resolveList(1, rows), [deleted, remaining]);
+  await expect(page.getByTestId('walk-row-walk-a')).toHaveCount(0);
+  await expect(page.getByTestId('walk-row-walk-b')).toBeVisible();
+  await verify();
+});
+
 test('failed delete keeps the confirmation open and explains the error', async ({ page }) => {
   const verify = await isolateWalkList(page);
   await loadRows(page, [walk('walk-a', 'Riverside Route')]);
