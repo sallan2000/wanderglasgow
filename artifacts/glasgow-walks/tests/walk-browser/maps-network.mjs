@@ -7,14 +7,14 @@ const leaflet = await readFile(require.resolve('leaflet/dist/leaflet.js'), 'utf8
 const leafletCss = await readFile(require.resolve('leaflet/dist/leaflet.css'), 'utf8');
 const transparentTile = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDZkAAAAASUVORK5CYII=', 'base64');
 
-const instrumentation = `
-window.mapFixture = { created: 0, removed: 0, resized: 0, live: [] };
+const instrumentation = (failMapFirst = false) => `
+window.mapFixture = { created: 0, removed: 0, resized: 0, live: [], failMapFirst: ${failMapFirst} };
 const originalMap = L.map;
 L.map = (...args) => {
   const map = originalMap(...args);
   mapFixture.created++;
   mapFixture.live.push(map);
-  const remove = map.remove, invalidateSize = map.invalidateSize;
+  const remove = map.remove, invalidateSize = map.invalidateSize, setView = map.setView;
   map.remove = function(...values) {
     mapFixture.removed++;
     mapFixture.live = mapFixture.live.filter(item => item !== map);
@@ -23,6 +23,13 @@ L.map = (...args) => {
   map.invalidateSize = function(...values) {
     mapFixture.resized++;
     return invalidateSize.apply(this, values);
+  };
+  map.setView = function(...values) {
+    if (mapFixture.failMapFirst) {
+      mapFixture.failMapFirst = false;
+      throw new Error('Map initialization failed in fixture');
+    }
+    return setView.apply(this, values);
   };
   return map;
 };
@@ -58,11 +65,11 @@ export async function isolateMaps(page, options = {}) {
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js') {
       scriptRequests++;
       if (options.holdFirst && scriptRequests === 1) {
-        options.releaseScript = () => route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation });
+        options.releaseScript = () => route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation(options.failMapFirst) });
         return;
       }
       if (options.failFirst && scriptRequests === 1) return route.abort();
-      return route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation });
+      return route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation(options.failMapFirst) });
     }
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css')
       return route.fulfill({ contentType: 'text/css', body: leafletCss });

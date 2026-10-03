@@ -74,6 +74,36 @@ test('admin marker follows current coordinates and map clicks use the current ca
   await verify();
 });
 
+test('walk preview identifies a Leaflet load failure and retries library loading', async ({ page }) => {
+  const verify = await isolateMaps(page, { failFirst: true });
+  await openMapFixture(page, 'walk-preview');
+  await expect(page.getByTestId('walk-status-map-error')).toContainText('Leaflet could not load');
+  await expect(page.getByTestId('walk-status-map-error')).toHaveAttribute('data-failure', 'leaflet');
+  expect(await page.evaluate(() => window.mapFixture?.created ?? 0)).toBe(0);
+
+  await page.getByRole('button', { name: 'Retry loading Leaflet' }).click();
+  await expect(page.locator('.leaflet-container')).toBeVisible();
+  await expect(page.getByTestId('walk-status-map-error')).toHaveCount(0);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  await verify();
+});
+
+test('walk preview identifies map initialization failure and retries map creation', async ({ page }) => {
+  const verify = await isolateMaps(page, { failMapFirst: true });
+  await openMapFixture(page, 'walk-preview');
+  await expect(page.getByTestId('walk-status-map-error')).toContainText('Leaflet loaded, but the preview map could not be initialized');
+  await expect(page.getByTestId('walk-status-map-error')).toHaveAttribute('data-failure', 'initialization');
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.removed)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.live.length)).toBe(0);
+
+  await page.getByRole('button', { name: 'Retry map initialization' }).click();
+  await expect(page.locator('.leaflet-container')).toBeVisible();
+  await expect(page.getByTestId('walk-status-map-error')).toHaveCount(0);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(2);
+  await verify();
+});
+
 test('visitor GPS permission is mocked and requested only after the plan button is pressed', async ({ page }) => {
   const verify = await isolateMaps(page);
   await openMapFixture(page, 'planner');
