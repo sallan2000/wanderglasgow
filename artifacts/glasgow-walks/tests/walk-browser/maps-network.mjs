@@ -50,6 +50,20 @@ export async function isolateMaps(page, options = {}) {
         },
       },
     });
+    window.observerFixture = { observed: 0, disconnected: 0, live: 0 };
+    const NativeResizeObserver = window.ResizeObserver;
+    window.ResizeObserver = class extends NativeResizeObserver {
+      observe(...args) {
+        observerFixture.observed++;
+        observerFixture.live++;
+        return super.observe(...args);
+      }
+      disconnect(...args) {
+        observerFixture.disconnected++;
+        observerFixture.live--;
+        return super.disconnect(...args);
+      }
+    };
   });
 
   let scriptRequests = 0;

@@ -154,6 +154,34 @@ test('hide/reopen during library load shares assets but only initializes the liv
   await verify();
 });
 
+test('closing the editor during library load leaves no stale map or observer and can reopen', async ({ page }) => {
+  const options = { holdFirst: true };
+  const verify = await isolate(page, options);
+  await open(page);
+  await page.getByTestId('walk-button-preview').click();
+  await expect(page.getByText('Loading map…', { exact: true })).toBeVisible();
+
+  await page.getByTestId('walk-button-close').click();
+  await expect(page.getByTestId('fixture-closed')).toBeVisible();
+  expect(await page.evaluate(() => window.walkFixture.state.requests[0].signal.aborted)).toBe(true);
+  await options.releaseScript();
+  await expect.poll(() => page.evaluate(() => Boolean(window.L))).toBe(true);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(0);
+  expect(await page.evaluate(() => window.mapFixture.live.length)).toBe(0);
+  expect(await page.evaluate(() => window.observerFixture.observed)).toBe(0);
+  expect(await page.evaluate(() => window.observerFixture.live)).toBe(0);
+
+  await page.getByTestId('fixture-reopen').click();
+  await expect(page.getByTestId('walk-form')).toBeVisible();
+  await page.getByTestId('walk-button-preview').click();
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.live.length)).toBe(1);
+  expect(await page.evaluate(() => window.observerFixture.observed)).toBe(1);
+  expect(await page.evaluate(() => window.observerFixture.live)).toBe(1);
+  await verify();
+});
+
 test('dirty discard keeps edits on cancel; confirmed discard aborts and cleans up', async ({ page }) => {
   const verify = await isolate(page);
   await open(page); await preview(page);

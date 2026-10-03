@@ -104,6 +104,31 @@ test('walk preview identifies map initialization failure and retries map creatio
   await verify();
 });
 
+test('walk preview ignores a late Leaflet load after closing and works when reopened', async ({ page }) => {
+  const options = { holdFirst: true };
+  const verify = await isolateMaps(page, options);
+  await openMapFixture(page, 'walk-preview');
+  await expect(page.getByText('Loading map…', { exact: true })).toBeVisible();
+
+  await page.getByTestId('fixture-toggle-mount').click();
+  await expect(page.getByTestId('walk-map-preview')).toHaveCount(0);
+  await options.releaseScript();
+  await expect.poll(() => page.evaluate(() => Boolean(window.L))).toBe(true);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(0);
+  expect(await page.evaluate(() => window.mapFixture.live.length)).toBe(0);
+  expect(await page.evaluate(() => window.observerFixture.observed)).toBe(0);
+  expect(await page.evaluate(() => window.observerFixture.live)).toBe(0);
+
+  await page.getByTestId('fixture-toggle-mount').click();
+  await expect(page.locator('.leaflet-container')).toBeVisible();
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(2);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.live.length)).toBe(1);
+  expect(await page.evaluate(() => window.observerFixture.observed)).toBe(1);
+  expect(await page.evaluate(() => window.observerFixture.live)).toBe(1);
+  await verify();
+});
+
 test('visitor GPS permission is mocked and requested only after the plan button is pressed', async ({ page }) => {
   const verify = await isolateMaps(page);
   await openMapFixture(page, 'planner');

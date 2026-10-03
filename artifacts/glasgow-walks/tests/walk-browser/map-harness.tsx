@@ -19,10 +19,13 @@ function MapHarness() {
 
   if (component === 'walk-preview') {
     return <main>
-      <AdminWalkMap stops={[
+      <button type="button" data-testid="fixture-toggle-mount" onClick={() => setMounted(value => !value)}>
+        {mounted ? 'Hide map component' : 'Show map component'}
+      </button>
+      {mounted && <AdminWalkMap stops={[
         { name: 'Glasgow Cathedral', place: 'Castle Street', lat: 55.862, lon: -4.234, story: 'A fixture story.' },
         { name: 'George Square', place: 'City centre', lat: 55.86, lon: -4.25, story: 'Another fixture story.' },
-      ]} geometry={null} />
+      ]} geometry={null} />}
     </main>;
   }
 
