@@ -27,6 +27,8 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - All tour ranking runs on the device. Do not persist GPS coordinates.
 - Stops are sightseeing viewpoints, not promises of admission or current opening. Avoid descriptions that assume closed/restoring venues can be entered.
 - Public mapping endpoints suit an initial small-scale version, not an unlimited-traffic availability promise. Review service policies before public launch.
+- Admin sign-in and shared attraction storage use a user-owned Supabase project, accessed directly through standard APIs. Enforce editing permissions with database row-level security, not just hidden admin controls.
+- **Why:** The user approved choosing an independent setup; one provider for authentication and storage avoids extra service accounts while retaining hosting independence.
 
 ## Product
 
@@ -38,7 +40,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 ## User preferences
 
 - The user requires the website not to rely on any Replit-specific infrastructure or services.
-- Keep the product a portable static website using standard browser APIs and independently available mapping services. Do not add Replit databases, auth, connectors, storage, or runtime APIs.
+- Keep the frontend portable using standard browser APIs and independently available mapping and data services. Do not add Replit databases, auth, storage, connectors at runtime, or runtime APIs.
 - **Why:** The user explicitly requested hosting and service independence.
 
 ## Gotchas
