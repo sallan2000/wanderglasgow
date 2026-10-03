@@ -84,9 +84,9 @@ function PublicApp() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a href="#top" className="brand" data-testid="link-home" aria-label="Glasgow Walks home">
-          <span className="brand-mark"><span>G</span></span>
-          <span className="brand-name">Glasgow Walks</span>
+        <a href="#top" className="brand" data-testid="link-home" aria-label="Wander Glasgow home">
+          <span className="brand-mark"><span>W</span></span>
+          <span className="brand-name">Wander Glasgow</span>
         </a>
         <nav className="nav-links" aria-label="Main navigation">
           <button onClick={() => document.getElementById('walks')?.scrollIntoView({ behavior: 'smooth' })} data-testid="nav-browse">Curated tours</button>
@@ -187,7 +187,7 @@ function PublicApp() {
       </section>
 
       <footer className="footer">
-        <a href="#top" className="brand" data-testid="footer-brand"><span className="brand-mark"><span>G</span></span><span className="brand-name">Glasgow Walks</span></a>
+        <a href="#top" className="brand" data-testid="footer-brand"><span className="brand-mark"><span>W</span></span><span className="brand-name">Wander Glasgow</span></a>
         <span>Made for the city. Best enjoyed at your own pace.</span>
         <a href={`${import.meta.env.BASE_URL}admin`} data-testid="link-admin">Admin sign in</a>
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" data-testid="link-osm-credit">Map data © OpenStreetMap contributors</a>
@@ -324,7 +324,7 @@ function App() {
   const admin = window.location.pathname.slice(import.meta.env.BASE_URL.length).replace(/\/$/, '') === 'admin';
   useEffect(() => {
     if (!admin) return;
-    document.title = 'Attraction administration · Glasgow Walks';
+    document.title = 'Attraction administration · Wander Glasgow';
     const robots = document.createElement('meta');
     robots.name = 'robots'; robots.content = 'noindex, nofollow';
     document.head.appendChild(robots);

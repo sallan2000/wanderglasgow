@@ -69,7 +69,7 @@ export default function AdminPortal() {
   if (!supabase) return (
     <div className="adm"><Message title="Supabase is not configured" testid="status-not-configured">
       <div className="adm-msg err">Add the project URL and public publishable key, then rebuild the website.</div>
-      <a className="adm-btn" href={base} data-testid="link-home-fallback">Back to Glasgow Walks</a></Message></div>
+      <a className="adm-btn" href={base} data-testid="link-home-fallback">Back to Wander Glasgow</a></Message></div>
   );
   if (!ready) return <div className="adm"><div className="adm-main"><div className="adm-skel" data-testid="status-auth-loading" /></div></div>;
   if (recovery && session) return <div className="adm"><Recovery onDone={() => { setRecovery(false); setNotice('Password updated.'); }} /></div>;
@@ -86,7 +86,7 @@ export default function AdminPortal() {
   if (gate.state === 'denied') return (
     <div className="adm"><Message title="Access denied" testid="status-denied">
       <p style={{ lineHeight: 1.6 }}>Signed in as <strong data-testid="text-denied-email">{session.user.email}</strong>. This account is not authorised to manage attractions.</p>
-      {err}<div className="adm-acts">{signOutBtn}<a className="adm-btn" href={base}>Visit Glasgow Walks</a></div></Message></div>
+      {err}<div className="adm-acts">{signOutBtn}<a className="adm-btn" href={base}>Visit Wander Glasgow</a></div></Message></div>
   );
   if (gate.state === 'error') return (
     <div className="adm"><Message title={gate.setup ? 'Storage setup needed' : 'Could not verify access'} testid="status-gate-error">

@@ -6,8 +6,8 @@ const base = import.meta.env.BASE_URL;
 
 export function Brand() {
   return (
-    <a href={base} className="brand" data-testid="link-home" aria-label="Glasgow Walks home">
-      <span className="brand-mark"><span>G</span></span><span className="brand-name">Glasgow Walks</span>
+    <a href={base} className="brand" data-testid="link-home" aria-label="Wander Glasgow home">
+      <span className="brand-mark"><span>W</span></span><span className="brand-name">Wander Glasgow</span>
     </a>
   );
 }
@@ -101,7 +101,7 @@ export function SignIn({ notice }: { notice?: string }) {
       <button className="adm-btn link" style={{ justifySelf: 'start', alignSelf: 'flex-start' }} onClick={() => { setMode(mode === 'in' ? 'forgot' : 'in'); setErr(''); setOk(''); }} data-testid="button-toggle-forgot">
         {mode === 'in' ? 'Forgot your password?' : <><ArrowLeft size={14} /> Back to sign in</>}
       </button>
-      <div className="adm-sub"><a href={base} data-testid="link-visitor-site">Back to Glasgow Walks</a> · <a href={base + 'setup.sql'} data-testid="link-setup-sql">Database setup SQL</a></div>
+      <div className="adm-sub"><a href={base} data-testid="link-visitor-site">Back to Wander Glasgow</a> · <a href={base + 'setup.sql'} data-testid="link-setup-sql">Database setup SQL</a></div>
       <details className="adm-setup" data-testid="details-owner-setup">
         <summary>First-time setup for the project owner</summary>
         <ol>

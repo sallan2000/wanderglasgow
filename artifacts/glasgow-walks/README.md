@@ -1,4 +1,4 @@
-# Glasgow Walks
+# Wander Glasgow
 
 A portable, static React frontend with a user-owned Supabase project for shared attractions and administrator sign-in. There is no Replit-specific database, authentication, storage, connector or runtime dependency, and no product API server is required.
 

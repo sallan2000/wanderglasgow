@@ -1,4 +1,4 @@
--- Glasgow Walks: run the generated public/setup.sql in your Supabase SQL Editor.
+-- Wander Glasgow: run the generated public/setup.sql in your Supabase SQL Editor.
 -- Uses a dedicated table/private schema; does not replace any existing database.
 begin;
 
