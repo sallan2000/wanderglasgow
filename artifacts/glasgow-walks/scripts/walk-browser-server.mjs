@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const fixtures = resolve(root, 'tests/walk-browser');
-// This server has no app entry point, auth client, or Supabase configuration.
+// This server has no app entry point or live Supabase configuration.
 const server = await createServer({
   configFile: false,
   root,
@@ -15,8 +15,10 @@ const server = await createServer({
       name: 'isolated-walk-components',
       enforce: 'pre',
       resolveId(id, importer) {
-        if (!importer?.endsWith('/src/AdminWalkEditor.tsx')) return;
-        if (id === './walk-store' || id === './attraction-store')
+        if (importer?.endsWith('/src/AdminAuth.tsx') && id === './attraction-store')
+          return resolve(fixtures, 'auth-transport.ts');
+        if (importer?.endsWith('/src/AdminWalkEditor.tsx') &&
+            (id === './walk-store' || id === './attraction-store'))
           return resolve(fixtures, 'transport.ts');
       },
       transform(source, id) {

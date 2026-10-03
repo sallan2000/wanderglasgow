@@ -12,7 +12,8 @@
     "test:planner": "node scripts/test-planner.mjs",
     "test:walks": "node scripts/test-curated-walks.mjs",
     "test:walks:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walks.config.mjs",
-    "test:admin": "node scripts/export-supabase-setup.mjs && node scripts/test-admin-security.mjs"
+    "test:admin": "node scripts/export-supabase-setup.mjs && node scripts/test-admin-security.mjs",
+    "test:admin:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walks.config.mjs --grep \"admin auth\""
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

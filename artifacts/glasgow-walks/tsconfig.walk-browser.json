@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["tests/walk-browser/harness.tsx"],
+  "include": ["tests/walk-browser/harness.tsx", "tests/walk-browser/auth-harness.tsx"],
   "exclude": ["node_modules", "dist"]
 }
