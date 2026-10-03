@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "nzGrhRggWX57v5pS1chv3"
+uri = "file://artifacts/glasgow-walks/src/assets/wander-glasgow-map-modern.png"
+type = "image"
+title = "Modern Glasgow illustrated map"
+description = "High-resolution original artwork for Wander Glasgow, with hand-drawn landmark illustrations placed using coordinates from the curated walks."
+logical_id = "86301db2-d79e-459e-a144-8055a35dbfd3"
+content_hash = "sha256:eccbbdcd57eb0b051681ec89bd40185960a4ea617e477c7c5465c8d188b3c94e"
+size = 1470114
+mtime_ms = 1791061935996
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:77b8ced3-28f9-49ca-a3a2-f9153b450fdf/86301db2-d79e-459e-a144-8055a35dbfd3/67f088aa-bc01-4a4f-beef-b05de4f6f6d4"
+storage_version_token = "1791062175638372"
+content_type = "image/png"
