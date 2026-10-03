@@ -7,7 +7,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - `pnpm --filter @workspace/glasgow-walks run dev` — run the website.
 - `pnpm --filter @workspace/glasgow-walks run typecheck` — check the app.
 - `pnpm --filter @workspace/glasgow-walks run build` — produce static files in `artifacts/glasgow-walks/dist/public`.
-- No required environment variables, credentials, API server, or database. Geolocation requires HTTPS.
+- Visitor editorial tours are static; shared attraction management uses external Supabase. Build settings: `VITE_SUPABASE_URL` and public `VITE_SUPABASE_PUBLISHABLE_KEY`. No product API server or Replit database. Geolocation requires HTTPS.
 - See `artifacts/glasgow-walks/README.md` for independent-host build instructions and external mapping-service assumptions.
 
 ## Stack
@@ -20,6 +20,8 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 
 - Website: `artifacts/glasgow-walks`.
 - Curated tours and stops: `src/tours.ts`.
+- Supabase client and shared catalogue: `src/attraction-store.ts`. Admin portal: `/admin`.
+- Database installation: generated `public/setup.sql`; first-admin authorisation: `supabase/grant-admin.sql`. These must be run by the Supabase project owner.
 - Interface, geolocation and map routing: `src/App.tsx`.
 
 ## Architecture decisions
@@ -35,6 +37,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - Eight themed Glasgow walks across art, music, history and sport.
 - Nearby-start recommendations after explicit GPS permission.
 - Visitors choose a theme or all nearby attractions. Order those attractions using actual pedestrian-network distances, with bounded detours and no forced return to the start.
+- Administrators add/edit/delete attractions with descriptions, exact map coordinates, one best-fitting theme, and draft/published status. Both dynamic visitor modes refetch published attractions whenever a walk is planned.
 - Interactive stop maps and true foot-network routes, with a no-GPS route-from-tour-start option.
 
 ## User preferences

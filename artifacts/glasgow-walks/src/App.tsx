@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, Clock3, LocateFixed, MapPin, Navigation, Route as RouteIcon, X } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
 import WalkPlanner from './WalkPlanner';
+import AdminPortal from './AdminPortal';
 import { tours, type Tour, type Theme } from './tours';
 
 
@@ -27,7 +28,7 @@ function locationMessage(status: GeoStatus, message: string) {
   return message;
 }
 
-function App() {
+function PublicApp() {
   const [activeTheme, setActiveTheme] = useState<Theme | 'All'>('All');
   const [plannerEntry, setPlannerEntry] = useState<{ mode: 'theme' | 'nearby'; theme?: Theme } | null>(null);
   const [selected, setSelected] = useState<Tour | null>(null);
@@ -179,6 +180,7 @@ function App() {
       <footer className="footer">
         <a href="#top" className="brand" data-testid="footer-brand"><span className="brand-mark"><span>G</span></span><span className="brand-name">Glasgow Walks</span></a>
         <span>Made for the city. Best enjoyed at your own pace.</span>
+        <a href={`${import.meta.env.BASE_URL}admin`} data-testid="link-admin">Admin sign in</a>
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" data-testid="link-osm-credit">Map data © OpenStreetMap contributors</a>
       </footer>
 
@@ -307,6 +309,19 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
       </section>
     </div>
   );
+}
+
+function App() {
+  const admin = window.location.pathname.slice(import.meta.env.BASE_URL.length).replace(/\/$/, '') === 'admin';
+  useEffect(() => {
+    if (!admin) return;
+    document.title = 'Attraction administration · Glasgow Walks';
+    const robots = document.createElement('meta');
+    robots.name = 'robots'; robots.content = 'noindex, nofollow';
+    document.head.appendChild(robots);
+    return () => robots.remove();
+  }, [admin]);
+  return admin ? <AdminPortal /> : <PublicApp />;
 }
 
 export default App;

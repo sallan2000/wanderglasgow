@@ -9,8 +9,8 @@ export type Attraction = Position & {
   theme: Theme;
 };
 
-// One attraction catalogue for both themed and mixed nearby walks.
-// A future independent admin data source can replace this catalogue.
+// Original catalogue: used by the one-time Supabase seed and explicitly
+// labelled visitor planning before shared storage is installed.
 export const attractions: Attraction[] = Array.from(
   new Map(tours.flatMap(tour => tour.stops.map(stop => {
     const id = stop.name.toLowerCase().replace(/^the /, '').normalize('NFKD')

@@ -1,2 +1,3 @@
 - [Browser toolchain compatibility](browser-toolchain.md) — Vite production transforms and dev dependency prebundling use separate targets; a successful build does not confirm dev startup.
 - [Leaflet initial view](leaflet-initial-view.md) — initialise map bounds before adding mixed vector overlays; an initialization error is not a tile-provider outage.
+- [Workspace packages](workspace-package-installation.md) — the generic installer targets the root; keep app dependencies artifact-scoped when recovering from its workspace guard.

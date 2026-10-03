@@ -114,7 +114,7 @@ async function routingJson(url: string, signal?: AbortSignal) {
 }
 
 export async function planAttractionWalk(
-  origin: Position, options: PlannerOptions, signal?: AbortSignal,
+  origin: Position, options: PlannerOptions, signal?: AbortSignal, catalogue: Attraction[] = attractions,
 ): Promise<PlannedWalk> {
   if (!Number.isFinite(origin.lat) || !Number.isFinite(origin.lon) ||
       origin.lat < -90 || origin.lat > 90 || origin.lon < -180 || origin.lon > 180) {
@@ -129,7 +129,7 @@ export async function planAttractionWalk(
   if (!Number.isFinite(maxWalkKm) || maxWalkKm <= 0 || maxWalkKm > 15) {
     throw new WalkPlanningError('Choose a walking limit between zero and 15 km.', 'location');
   }
-  const candidates = attractions
+  const candidates = catalogue
     .filter(item => options.theme === 'All' || item.theme === options.theme)
     .map(item => ({ item, distance: distanceKm(origin, item) }))
     .filter(entry => entry.distance <= options.radiusKm)

@@ -80,6 +80,16 @@ try {
     assert.equal(mixed.distanceMeters, 1200, 'Use returned route metrics');
     const themed = await planAttractionWalk(origin, { theme: 'History', radiusKm: 2, maxStops: 3 });
     assert(themed.stops.length > 0 && themed.stops.every(item => item.theme === 'History'));
+    const liveCatalogue = Array.from({ length: 4 }, (_, i) => ({
+      id: `admin-added-${i}`, name: `Admin-added sight ${i}`, description: 'An administrator description.',
+      place: 'Glasgow', theme: 'Art', lat: origin.lat + i * .0001, lon: origin.lon,
+    }));
+    const added = await planAttractionWalk(origin, { theme: 'Art', radiusKm: 2, maxStops: 3 }, undefined, liveCatalogue);
+    assert(added.stops.length > 0 && added.stops.every(item => item.id.startsWith('admin-added-')), 'Themed planning consumes supplied live attractions');
+    const addedNearby = await planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, liveCatalogue);
+    assert(addedNearby.stops.length > 0 && addedNearby.stops.every(item => item.id.startsWith('admin-added-')), 'Nearby planning consumes supplied live attractions');
+    await assert.rejects(planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, []),
+      error => error.kind === 'empty', 'An empty live catalogue is never silently replaced with seeds');
     const beforeEmpty = requests;
     await assert.rejects(planAttractionWalk({ lat: 0, lon: 0 }, { theme: 'All', radiusKm: 2, maxStops: 3 }),
       error => error.kind === 'empty');

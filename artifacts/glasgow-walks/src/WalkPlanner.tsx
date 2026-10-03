@@ -4,6 +4,7 @@ import { loadLeaflet, getPosition } from './browser-helpers';
 import { planAttractionWalk, WalkPlanningError, type PlannedWalk } from './walk-planner';
 import type { Theme } from './tours';
 import type { Position } from './attractions';
+import { CatalogueError, loadPublicCatalogue } from './attraction-store';
 
 type Mode = 'theme' | 'nearby';
 type Start = 'gps' | 'centre' | 'west' | 'east';
@@ -26,6 +27,7 @@ export default function WalkPlanner({ entry }: { entry?: { mode: Mode; theme?: T
   const [maxStops, setMaxStops] = useState(6);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+  const [catalogueNotice, setCatalogueNotice] = useState('');
   const [plan, setPlan] = useState<PlannedWalk | null>(null);
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const run = useRef(0);
@@ -36,7 +38,7 @@ export default function WalkPlanner({ entry }: { entry?: { mode: Mode; theme?: T
     run.current++;
     abort.current?.abort();
     abort.current = null;
-    setStatus('idle'); setError(''); setPlan(null); setMapStatus('loading');
+    setStatus('idle'); setError(''); setCatalogueNotice(''); setPlan(null); setMapStatus('loading');
   };
   useEffect(() => () => { run.current++; abort.current?.abort(); }, []);
   useEffect(() => {
@@ -63,13 +65,16 @@ export default function WalkPlanner({ entry }: { entry?: { mode: Mode; theme?: T
         if (id !== run.current) return;
       }
       setStatus('planning');
-      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? theme! : 'All', radiusKm: radius, maxStops }, controller.signal);
+      const catalogue = await loadPublicCatalogue(controller.signal);
+      if (id !== run.current) return;
+      setCatalogueNotice(catalogue.notice ?? '');
+      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? theme! : 'All', radiusKm: radius, maxStops }, controller.signal, catalogue.attractions);
       if (id !== run.current) return;
       setPlan(result); setStatus('ready');
     } catch (e: any) {
       if (id !== run.current || e?.name === 'AbortError') return;
       let msg = 'Something went wrong planning this walk. Please try again.';
-      if (e instanceof WalkPlanningError) msg = e.message;
+      if (e instanceof WalkPlanningError || e instanceof CatalogueError) msg = e.message;
       else if (e?.code === 1) msg = 'Location permission was declined. Nothing was saved. Pick City centre, West End or East End to plan a walk anyway.';
       else if (typeof e?.code === 'number') msg = e.message || 'Your position could not be found. Pick a Glasgow starting point instead.';
       setError(msg); setStatus('error');
@@ -88,9 +93,10 @@ export default function WalkPlanner({ entry }: { entry?: { mode: Mode; theme?: T
         .setView([plan.origin.lat, plan.origin.lon], 14);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
       const line = L.geoJSON(plan.geometry, { style: { color: '#183a36', weight: 5, opacity: 0.9 } }).addTo(map);
-      plan.nearby.filter((n) => !n.included).forEach((n) => L.circleMarker([n.lat, n.lon], { radius: 5, color: '#6b7e76', weight: 2, fillColor: '#e9e4d7', fillOpacity: 1 }).addTo(map).bindTooltip(`${n.name} (not on route)`));
+       const tooltip = (text: string) => { const node = document.createElement('span'); node.textContent = text; return node; };
+       plan.nearby.filter((n) => !n.included).forEach((n) => L.circleMarker([n.lat, n.lon], { radius: 5, color: '#6b7e76', weight: 2, fillColor: '#e9e4d7', fillOpacity: 1 }).addTo(map).bindTooltip(tooltip(`${n.name} (not on route)`)));
       L.circleMarker([plan.origin.lat, plan.origin.lon], { radius: 8, color: '#f5f2e9', weight: 3, fillColor: '#183a36', fillOpacity: 1 }).addTo(map).bindTooltip('Start');
-      plan.stops.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', html: `<div class="plan-pin">${i + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map).bindTooltip(`${i + 1}. ${s.name}`));
+       plan.stops.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', html: `<div class="plan-pin">${i + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map).bindTooltip(tooltip(`${i + 1}. ${s.name}`)));
       map.fitBounds(line.getBounds(), { padding: [30, 30] });
       setMapStatus('ready');
       setTimeout(() => map?.invalidateSize(), 100);
@@ -155,6 +161,7 @@ export default function WalkPlanner({ entry }: { entry?: { mode: Mode; theme?: T
       )}
 
       <div aria-live="polite">
+        {catalogueNotice && <p className="planner-msg" role="status" data-testid="status-catalogue-notice">{catalogueNotice}</p>}
         {busy && <div className="planner-msg loading" data-testid="status-planner-loading">{status === 'locating' ? 'Waiting for your location permission…' : 'Checking walking distances. The public service is rate limited, so this can take a few seconds.'}</div>}
         {status === 'error' && (
           <div className="planner-msg" role="alert" data-testid="status-planner-error">

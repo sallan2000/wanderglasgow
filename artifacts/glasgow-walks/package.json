@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "setup:export": "node scripts/export-supabase-setup.mjs",
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts",
+    "build": "node scripts/export-supabase-setup.mjs && vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:planner": "node scripts/test-planner.mjs"
+    "test:planner": "node scripts/test-planner.mjs",
+    "test:admin": "node scripts/export-supabase-setup.mjs && node scripts/test-admin-security.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -16,10 +18,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@supabase/supabase-js": "^2.117.2",
+    "@tailwindcss/vite": "^4.1.11",
     "@types/node": "^25.3.3",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
-    "@tailwindcss/vite": "^4.1.11",
     "@vitejs/plugin-react": "^4.7.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.7.3",
