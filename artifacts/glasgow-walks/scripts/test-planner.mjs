@@ -55,7 +55,7 @@ try {
   assert.equal(findEfficientOrder([[0, null], [20, 0]], 1, 100).order.length, 0);
 
   const originalFetch = globalThis.fetch;
-  let requests = 0, failService = false, lastTableCoordinates = [], farService = false, routeDistance = 1200;
+  let requests = 0, failService = false, lastTableCoordinates = [], farService = false, fourKmService = false, routeDistance = 1200;
   globalThis.fetch = async url => {
     requests++;
     if (failService) return new Response('Unavailable', { status: 503 });
@@ -65,7 +65,7 @@ try {
       lastTableCoordinates = coordinates;
       const distances = coordinates.map((_, from) => coordinates.map((__, to) =>
         from === to ? 0 : farService ? from === 0 ? to === coordinates.length - 1 ? 10500 : 6200 + to * 500 : 500 :
-          from === 0 ? to === 1 ? null : to === coordinates.length - 1 ? 5000 : 200 + to * 40 : 80));
+          from === 0 ? to === 1 ? null : to === coordinates.length - 1 ? fourKmService ? 3200 : 5000 : 200 + to * 40 : 80));
       return Response.json({ code: 'Ok', distances });
     }
     return Response.json({ code: 'Ok', routes: [{
@@ -81,7 +81,23 @@ try {
     assert.equal(mixed.excludedCount, mixed.nearby.length - mixed.stops.length);
     assert.equal(mixed.distanceMeters, 1200, 'Use returned route metrics');
     assert.equal(defaultWalkLimitKm(5), 5, 'Existing search options retain a 5 km walking limit');
+    assert.equal(defaultWalkLimitKm(4), 5, 'The new 4 km search retains the existing 5 km walking limit');
     assert.equal(defaultWalkLimitKm(10), 15, 'Extended search permits a 15 km walk');
+    const fourKmCatalogue = [0.030, 0.031, 0.050].map((offset, i) => ({
+      id: `four-km-${i}`, name: `Four-kilometre search sight ${i}`, description: '4 km radius check.',
+      place: 'Glasgow', theme: 'Art', lat: origin.lat + offset, lon: origin.lon,
+    }));
+    const beforeFourKmSearch = requests;
+    await assert.rejects(planAttractionWalk(origin, { theme: 'Art', radiusKm: 3, maxStops: 3 }, undefined, fourKmCatalogue),
+      error => error.kind === 'empty', 'The 3 km option excludes these farther sights');
+    assert.equal(requests, beforeFourKmSearch, 'A 3 km search excludes sights before requesting routes');
+    fourKmService = true;
+    const fourKmWalk = await planAttractionWalk(origin, { theme: 'Art', radiusKm: 4, maxStops: 3 }, undefined, fourKmCatalogue);
+    fourKmService = false;
+    assert(fourKmWalk.nearby.length > 0 && fourKmWalk.nearby.every(item => item.walkingDistanceMeters <= 4000),
+      'The 4 km option includes reachable attractions within four kilometres on foot');
+    assert.equal(lastTableCoordinates.length, 3, 'A sight beyond the 4 km radius is excluded before routing');
+    assert.equal(fourKmWalk.distanceMeters, 1200, 'The 4 km option retains the existing 5 km total-walk limit');
     const farCatalogue = [0.058, 0.060, 0.062, 0.064, 0.11].map((offset, i) => ({
       id: `far-${i}`, name: `Farther attraction ${i}`, description: 'Extended radius check.',
       place: 'Glasgow', theme: i % 2 ? 'Music' : 'Art', lat: origin.lat + offset, lon: origin.lon,

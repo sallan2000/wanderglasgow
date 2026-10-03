@@ -2,7 +2,7 @@ import { attractions, distanceKm, type Attraction, type Position } from './attra
 import type { Theme } from './tours';
 
 // The "5 km+" choice is a bounded search, not an unlimited walking request.
-export const SEARCH_RADII_KM = [1, 2, 3, 5, 10] as const;
+export const SEARCH_RADII_KM = [1, 2, 3, 4, 5, 10] as const;
 export const defaultWalkLimitKm = (radiusKm: number) => radiusKm === 10 ? 15 : 5;
 
 export type PlannerOptions = {
