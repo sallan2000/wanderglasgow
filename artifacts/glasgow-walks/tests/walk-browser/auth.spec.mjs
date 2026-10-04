@@ -427,20 +427,42 @@ test('admin auth password recovery works with the keyboard on a narrow screen', 
 test('admin auth restores password-update retry after a rejected request', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html?update=reject-once#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
-  await page.getByTestId('input-new-password').fill('new-fixture-password');
-  await page.getByTestId('input-confirm-password').fill('new-fixture-password');
 
+  const newPassword = page.getByTestId('input-new-password');
+  const confirmPassword = page.getByTestId('input-confirm-password');
   const submit = page.getByTestId('button-save-password');
-  await submit.click();
-  await expect(page.getByTestId('status-recovery-error')).toHaveText(
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('link-home')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(newPassword).toBeFocused();
+  await page.keyboard.type('new-fixture-password');
+  await page.keyboard.press('Tab');
+  await expect(confirmPassword).toBeFocused();
+  await page.keyboard.type('new-fixture-password');
+  await page.keyboard.press('Tab');
+  await expect(submit).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByRole('alert')).toHaveText(
     'Your password could not be changed just now. Check your connection and try again.',
   );
+  await expect(newPassword).toBeVisible();
+  await expect(newPassword).toBeEnabled();
+  await expect(newPassword).toHaveValue('new-fixture-password');
+  await expect(confirmPassword).toBeVisible();
+  await expect(confirmPassword).toBeEnabled();
+  await expect(confirmPassword).toHaveValue('new-fixture-password');
   await expect(submit).toBeEnabled();
 
-  await submit.click();
+  await expect(submit).toBeFocused();
+  await page.keyboard.press('Enter');
+
   await expect(page.getByTestId('status-auth-notice')).toHaveText('Password updated.');
   await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toHaveLength(2);
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([
+    { password: 'new-fixture-password' },
+    { password: 'new-fixture-password' },
+  ]);
 });
 
 test('admin auth opens recovery from PASSWORD_RECOVERY after the URL marker is gone', async ({ page }) => {

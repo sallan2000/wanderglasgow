@@ -14,3 +14,9 @@ Browser fixtures that deliberately hold an external resource should navigate wit
 **Why:** A lifecycle test that pauses the map library request may also delay Playwright's full page-load completion.
 
 **How to apply:** Use DOM readiness for map-fixture navigation when the test controls whether a script request is released.
+
+Keyboard focus does not wrap from the last tabbable control to the first one when Tab is pressed; browsers may move focus out of the page.
+
+**Why:** Assuming wraparound made a keyboard retry test assert an impossible tab sequence after submitting from the final form control.
+
+**How to apply:** After an async submission, assert where focus actually remains and use that focused control for keyboard retries, rather than assuming Tab cycles back to the first link.
