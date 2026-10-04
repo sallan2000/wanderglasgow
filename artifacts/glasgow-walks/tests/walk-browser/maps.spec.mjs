@@ -99,6 +99,85 @@ test('admin marker follows current coordinates and map clicks use the current ca
   await verify();
 });
 
+test('admin can place and edit a pin while background tiles fail and recover', async ({ page }) => {
+  const options = {};
+  const verify = await isolateMaps(page, options);
+  await openMapFixture(page, 'admin');
+  await expect(page.locator('.leaflet-container')).toBeVisible();
+  await expect.poll(() => markerCoordinates(page)).toEqual([55.86, -4.25]);
+  await expect.poll(() => page.evaluate(() => {
+    let tiles;
+    window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });
+    return Boolean(tiles) && !tiles._loading;
+  })).toBe(true);
+
+  const map = await page.evaluateHandle(() => window.mapFixture.live[0]);
+  const marker = await page.evaluateHandle(() => {
+    let pin;
+    window.mapFixture.live[0].eachLayer(layer => {
+      if (typeof layer.getLatLng === 'function') pin = layer;
+    });
+    return pin;
+  });
+  const tiles = await page.evaluateHandle(() => {
+    let background;
+    window.mapFixture.live[0].eachLayer(layer => { if (layer._url) background = layer; });
+    return background;
+  });
+  await page.evaluate(layer => {
+    const redraw = layer.redraw.bind(layer);
+    layer.redrawCalls = 0;
+    layer.observedTileErrors = 0;
+    layer.on('tileerror', () => { layer.observedTileErrors++; });
+    layer.redraw = function(...args) {
+      this.redrawCalls++;
+      return redraw(...args);
+    };
+  }, tiles);
+  options.failTileRequests = true;
+  await page.evaluate(layer => layer.fire('tileerror'), tiles);
+  const notice = page.getByTestId('status-picker-map-tiles-error');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('Your selected pin and coordinates are unchanged.');
+
+  // Pin placement remains available even though the background warning is shown.
+  await page.evaluate(() => window.mapFixture.live[0].fire('click', {
+    latlng: { lat: 55.87123456, lng: -4.28123456 },
+  }));
+  await expect(page.getByTestId('fixture-picked')).toHaveText('1:55.871235,-4.281235');
+  await expect(page.getByTestId('fixture-input-latitude')).toHaveValue('55.871235');
+  await expect(page.getByTestId('fixture-input-longitude')).toHaveValue('-4.281235');
+  await expect.poll(() => markerCoordinates(page)).toEqual([55.871235, -4.281235]);
+
+  // Manual coordinates also update the selected pin while tiles are unavailable.
+  await page.getByTestId('fixture-input-latitude').fill('55.88');
+  await page.getByTestId('fixture-input-longitude').fill('-4.27');
+  await expect.poll(() => markerCoordinates(page)).toEqual([55.88, -4.27]);
+  await expect(notice).toBeVisible();
+  await expect.poll(() => page.evaluate(layer => layer.observedTileErrors, tiles)).toBeGreaterThan(1);
+
+  options.failTileRequests = false;
+  await page.getByTestId('button-picker-map-tiles-retry').click();
+  await expect.poll(() => page.evaluate(layer => layer.redrawCalls, tiles)).toBe(1);
+  await expect(notice).toHaveCount(0);
+  await expect(page.getByTestId('fixture-input-latitude')).toHaveValue('55.88');
+  await expect(page.getByTestId('fixture-input-longitude')).toHaveValue('-4.27');
+  await expect.poll(() => markerCoordinates(page)).toEqual([55.88, -4.27]);
+  expect(await page.evaluate(([activeMap, activePin]) => ({
+    sameMap: window.mapFixture.live[0] === activeMap,
+    samePin: (() => {
+      let pin;
+      window.mapFixture.live[0].eachLayer(layer => {
+        if (typeof layer.getLatLng === 'function') pin = layer;
+      });
+      return pin === activePin;
+    })(),
+    created: window.mapFixture.created,
+    removed: window.mapFixture.removed,
+  }), [map, marker])).toEqual({ sameMap: true, samePin: true, created: 1, removed: 0 });
+  await verify();
+});
+
 test('walk preview identifies a Leaflet load failure and retries library loading', async ({ page }) => {
   const verify = await isolateMaps(page, { failFirst: true });
   await openMapFixture(page, 'walk-preview');

@@ -11,8 +11,8 @@ function MapHarness() {
   const requestedComponent = new URLSearchParams(location.search).get('component');
   const component = requestedComponent === 'planner' || requestedComponent === 'walk-preview' ? requestedComponent : 'admin';
   const [mounted, setMounted] = useState(true);
-  const [lat, setLat] = useState<number | null>(55.86);
-  const [lon, setLon] = useState<number | null>(-4.25);
+  const [lat, setLat] = useState('55.86');
+  const [lon, setLon] = useState('-4.25');
   const [label, setLabel] = useState('Cathedral fixture');
   const [pickVersion, setPickVersion] = useState(1);
   const [picked, setPicked] = useState('');
@@ -39,7 +39,7 @@ function MapHarness() {
           categoriesError="" onRetryCategories={() => {}} />
       ) : mounted ? (
         <section>
-          <button type="button" data-testid="fixture-move-marker" onClick={() => { setLat(55.875); setLon(-4.29); }}>
+          <button type="button" data-testid="fixture-move-marker" onClick={() => { setLat('55.875'); setLon('-4.29'); }}>
             Move marker
           </button>
           <button type="button" data-testid="fixture-update-label" onClick={() => setLabel('Updated museum fixture')}>
@@ -49,8 +49,20 @@ function MapHarness() {
             Update map click handler
           </button>
           <output data-testid="fixture-picked">{picked}</output>
-          <AdminMap lat={lat} lon={lon} label={label}
-            onPick={(nextLat, nextLon) => setPicked(`${pickVersion}:${nextLat.toFixed(6)},${nextLon.toFixed(6)}`)} />
+          <label>Fixture latitude
+            <input data-testid="fixture-input-latitude" value={lat} onChange={event => setLat(event.target.value)} />
+          </label>
+          <label>Fixture longitude
+            <input data-testid="fixture-input-longitude" value={lon} onChange={event => setLon(event.target.value)} />
+          </label>
+          <AdminMap lat={lat.trim() && Number.isFinite(Number(lat)) ? Number(lat) : null}
+            lon={lon.trim() && Number.isFinite(Number(lon)) ? Number(lon) : null}
+            label={label}
+            onPick={(nextLat, nextLon) => {
+              setLat(String(nextLat));
+              setLon(String(nextLon));
+              setPicked(`${pickVersion}:${nextLat.toFixed(6)},${nextLon.toFixed(6)}`);
+            }} />
         </section>
       ) : null}
     </main>

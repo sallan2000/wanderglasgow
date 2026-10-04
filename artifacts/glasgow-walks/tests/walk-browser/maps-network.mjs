@@ -110,8 +110,10 @@ export async function isolateMaps(page, options = {}) {
     }
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css')
       return route.fulfill({ contentType: 'text/css', body: leafletCss });
-    if (url.hostname.endsWith('.tile.openstreetmap.org'))
+    if (url.hostname.endsWith('.tile.openstreetmap.org')) {
+      if (options.failTileRequests) return route.abort();
       return route.fulfill({ contentType: 'image/png', body: transparentTile });
+    }
     if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com')
       return route.fulfill({ contentType: 'text/css', body: '' });
     unexpected.push(url.origin + url.pathname);
