@@ -2,6 +2,8 @@
 
 A portable, static React frontend with a user-owned Supabase project for shared attractions, curated walks and administrator sign-in. There is no Replit-specific database, authentication, storage, connector or runtime dependency, and no product API server is required.
 
+Optional direct walk emailing uses a function in that same owner-managed Supabase project plus Resend and Cloudflare Turnstile; the frontend remains independently hostable.
+
 ## Build independently
 
 From this directory, with Node.js 22 or newer:
@@ -70,6 +72,18 @@ Public visitors and ordinary signed-in users can read only published attractions
 Supabase manages authentication, session refresh and password recovery. The website never stores admin passwords. An administrator's session token is stored by the SDK in browser storage; use a trusted device and sign out when finished. User-authored names/descriptions are rendered as text, including map tooltips.
 
 Run `npm run test:admin` for actual PostgreSQL checks in an isolated in-memory database (PGlite), including the existing-installation category upgrade, custom category permissions/persistence, anonymous/non-admin denial, metadata escalation prevention, drafts, validation, changes visible to visitors, conflicts, revocation and safe seed re-runs. These tests do not alter the Supabase project and are not a substitute for a live sign-in/save check after owner setup.
+
+## Emailing walks
+
+Visitors can use **Email this walk** on a completed planner result or in a curated-walk detail view. They enter their own address, explicitly consent to sharing the itinerary, complete a security check, and send. The form reports provider acceptance, not guaranteed inbox delivery. It remains available when the map cannot load.
+
+Email delivery is disabled until the owner completes [the email setup guide](docs/email-delivery.md): verify a sender domain in Resend, configure Cloudflare Turnstile, run `public/email-delivery-upgrade.sql`, set the function's private secrets in Supabase, deploy `send-walk-email`, and rebuild the website with its public Turnstile site key. Fresh setup alone does not enable sending. No Replit connector or email-provider secret belongs in the frontend.
+
+Emails contain readable stop itineraries and OpenStreetMap point links, not stored/shareable GPS tracks or turn-by-turn directions. Planner email includes the precise origin only after confirmation; curated email uses the latest published editorial stops from the listed start, never the visitor's GPS connector route. Stop prose is loaded from published database records, not accepted from the browser.
+
+The app does not store addresses or routes or log request contents. The private database keeps keyed, non-plaintext abuse counters (three attempts per recipient and 100 globally per hour); counters older than two hours are removed on the next send attempt. Resend necessarily receives the address and email body and may retain them under its own policy. Cloudflare processes security checks. See the setup guide for retention, duplicate-retry limits, and provider troubleshooting.
+
+`npm run test:email` checks the actual function, payload validation, canonical email content, fake provider outcomes, retries, and real isolated PostgreSQL limiter permissions. `npm run test:email:browser` verifies the rendered planner and curated email forms, consent, pending/failure/retry/success, keyboard/mobile behavior and setup-unavailable states. Neither suite sends real email or contacts the owner's Supabase.
 
 ## Mapping and privacy
 

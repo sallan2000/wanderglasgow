@@ -1,0 +1,25 @@
+.email-walk{margin:18px 0;max-width:100%;min-width:0}
+.email-walk-open{min-height:44px;display:inline-flex;align-items:center;gap:9px;padding:0 18px;border:1px solid var(--ink);border-radius:30px;background:transparent;color:var(--ink);font-weight:700;transition:background .18s,color .18s,transform .18s}
+.email-walk-open:hover{background:var(--ink);color:var(--paper);transform:translateY(-1px)}
+.email-walk button:focus-visible,.email-walk-input:focus-visible,.email-walk-consent input:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.email-walk-panel{display:grid;gap:12px;background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--orange);padding:18px;max-width:560px;animation:email-walk-in .22s ease-out;overflow-wrap:anywhere}
+@keyframes email-walk-in{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+.email-walk-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.email-walk-head strong{font:600 20px/1.2 var(--app-font-serif);letter-spacing:-.02em}
+.email-walk-x{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);display:grid;place-items:center}
+.email-walk-x:disabled,.email-walk-actions button:disabled{opacity:.55;cursor:not-allowed}
+.email-walk-input{width:100%;min-height:48px;padding:0 14px;border:1px solid var(--ink-soft);border-radius:4px;background:#fffdf6;color:var(--ink);font:16px var(--app-font-sans)}
+.email-walk-input[aria-invalid="true"]{border-color:#a74630;border-width:2px}
+.email-walk-input:disabled{background:var(--paper-deep)}
+.email-walk-note{font-size:12px;line-height:1.6;color:var(--ink-soft)}
+.email-walk-note p{margin:0 0 6px}
+p.email-walk-note{margin:0}
+.email-walk-consent{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;font-size:13px;line-height:1.5;padding:10px 0}
+.email-walk-consent input{width:22px;height:22px;margin:0;accent-color:var(--ink)}
+.email-walk-err{margin:0;color:#a74630;font-size:13px;line-height:1.5;font-weight:600}
+.email-walk-err:empty{display:none}
+.email-walk-ok{margin:0;padding:12px 14px;background:#e2e8d3;color:var(--ink);font-size:14px;line-height:1.55}
+.email-security{min-width:0;max-width:100%;overflow:hidden}
+.email-walk-actions{display:flex;gap:10px;flex-wrap:wrap}
+.email-walk-actions .button-primary{min-height:48px}
+@media(max-width:760px){.email-walk-panel{padding:16px}.email-walk-actions button{width:100%;justify-content:center}.email-walk-open{width:100%;justify-content:center}.email-walk-note{font-size:12px}}

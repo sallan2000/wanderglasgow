@@ -1,0 +1,6 @@
+project_id = "wander-glasgow"
+
+[functions.send-walk-email]
+# Visitors are anonymous; the handler requires server-verified Turnstile,
+# an exact origin allow-list, and a private database rate-limit claim.
+verify_jwt = false

@@ -8,6 +8,8 @@ import type { Position } from './attractions';
 import { CatalogueError, loadPublicCatalogue } from './attraction-store';
 import { loadPublicStartingAreas, StartingAreaError } from './starting-area-store';
 import { useStartingAreas } from './use-starting-areas';
+import EmailWalk from './EmailWalk';
+import { plannedEmailWalk } from './walk-email';
 
 type Mode = 'theme' | 'nearby';
 type Start = string;
@@ -217,6 +219,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span>{fmtKm(plan.distanceMeters)} walking</span>
               <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>
             </div>
+            <EmailWalk walk={plannedEmailWalk(plan)} title="Your calculated Glasgow walk" />
             {plan.stops.map((s, i) => (
               <article className="plan-stop" key={s.id} data-testid={`stop-plan-${s.id}`}>
                 <div className="stop-num">{String(i + 1).padStart(2, '0')}</div>

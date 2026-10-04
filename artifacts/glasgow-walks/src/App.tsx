@@ -8,6 +8,8 @@ import AdminPortal from './AdminPortal';
 import { type Tour, type Theme } from './tours';
 import { useAttractionCategories } from './hooks/use-attraction-categories';
 import { useCuratedWalks } from './hooks/use-curated-walks';
+import EmailWalk from './EmailWalk';
+import { curatedEmailWalk } from './walk-email';
 
 
 const themeCount = (theme: Theme, tours: Tour[]) => {
@@ -332,6 +334,7 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
         <h2 id="detail-title">{tour.title}</h2>
         <div className="drawer-summary">{tour.subtitle} Follow a considered route through real Glasgow places, with room to pause and look around.</div>
         <div className="drawer-stats"><span><RouteIcon size={14} /> {tour.distanceKm.toFixed(1)} km approx.</span><span><Clock3 size={14} /> {tour.minutes} min walking</span><span><MapPin size={14} /> {tour.stops.length} stops</span></div>
+        <EmailWalk walk={curatedEmailWalk(tour)} title={tour.title} />
 
         <div className="map-wrap">
           {!mapLoaded && !mapFailure && <div className="map-loading" role="status" data-testid="status-map-loading">Loading the interactive map…</div>}
