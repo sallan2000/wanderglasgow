@@ -22,6 +22,7 @@ try {
   const schema = await readFile(resolve('supabase/schema.sql'), 'utf8');
   const categories = await readFile(resolve('supabase/categories.sql'), 'utf8');
   const walkSchema = await readFile(resolve('supabase/curated-walks.sql'), 'utf8');
+  const startingAreas = await readFile(resolve('supabase/starting-areas.sql'), 'utf8');
   const walkValues = tours.map(t => `(${[t.id, t.title, t.subtitle, t.theme].map(quote).join(', ')}, ${quote(JSON.stringify(t.stops))}::jsonb, ${t.distanceKm}, ${t.minutes}, true)`).join(',\n');
   const walkSeed = `
 do $walk_seed$
@@ -52,7 +53,8 @@ commit;
 notify pgrst, 'reload schema';
 `;
   await mkdir(resolve('public'), { recursive: true });
-  await writeFile(resolve('public/setup.sql'), schema + '\n' + categories + '\n' + walkSchema + walkSeed + seed);
+  await writeFile(resolve('public/setup.sql'), schema + '\n' + categories + '\n' + startingAreas + '\n' + walkSchema + walkSeed + seed);
+  await writeFile(resolve('public/starting-areas-upgrade.sql'), 'begin;\n' + startingAreas + "\ncommit;\nnotify pgrst, 'reload schema';\n");
   await writeFile(resolve('public/grant-admin.sql'), await readFile(resolve('supabase/grant-admin.sql'), 'utf8'));
   await writeFile(resolve('public/categories-upgrade.sql'), 'begin;\n' + categories + "\ncommit;\nnotify pgrst, 'reload schema';\n");
   await writeFile(resolve('public/curated-walks-upgrade.sql'), 'begin;\n' + categories + '\n' + walkSchema + walkSeed + "\ncommit;\nnotify pgrst, 'reload schema';\n");

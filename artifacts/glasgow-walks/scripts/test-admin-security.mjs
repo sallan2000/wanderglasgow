@@ -55,6 +55,56 @@ try {
   await db.exec(walkUpgrade);
   assert.deepEqual(await rows('select * from public.glasgow_curated_walks order by id'), originalWalks);
   checks++;
+  const areaUpgrade = await readFile('public/starting-areas-upgrade.sql', 'utf8');
+  const beforeAreas = await rows('select * from public.glasgow_attractions order by id');
+  // Simulate an existing installation with no starting-area extension.
+  await db.exec("drop table public.glasgow_starting_areas; delete from glasgow_walks_private.seed_history where seed_key='initial-starting-areas'");
+  await db.exec(areaUpgrade);
+  assert.deepEqual(await rows('select * from public.glasgow_attractions order by id'), beforeAreas); checks++;
+  assert.deepEqual(await rows('select * from public.glasgow_curated_walks order by id'), originalWalks); checks++;
+  check((await rows('select * from glasgow_walks_private.admin_users')).length === 1, 'Area upgrade preserves admin access');
+  const seededAreas = await rows('select id,name,latitude,longitude from public.glasgow_starting_areas order by id');
+  assert.deepEqual(seededAreas, [
+    { id: 'centre', name: 'City centre', latitude: 55.8609, longitude: -4.2514 },
+    { id: 'east', name: 'East End', latitude: 55.8545, longitude: -4.2372 },
+    { id: 'west', name: 'West End', latitude: 55.8745, longitude: -4.2916 },
+  ]); checks++;
+  await as('anon');
+  check((await rows('select * from public.glasgow_starting_areas')).length === 3, 'Visitors read starting points');
+  const areaInsert = "insert into public.glasgow_starting_areas(id,name,latitude,longitude) values ('station','Central Station',55.859,-4.258)";
+  await denied(areaInsert);
+  await denied("update public.glasgow_starting_areas set name='Forged origin'");
+  await denied('delete from public.glasgow_starting_areas');
+  await as('authenticated', ordinary);
+  await denied(areaInsert);
+  check((await rows("update public.glasgow_starting_areas set name='Forged origin' returning id")).length === 0, 'Non-admin cannot reposition or rename areas');
+  check((await rows('delete from public.glasgow_starting_areas returning id')).length === 0, 'Non-admin cannot delete areas');
+  await as('authenticated', admin);
+  await db.exec(areaInsert);
+  await denied(areaInsert.replace("'station'", "'duplicate'").replace("'Central Station'", "'central station'"), '23505');
+  for (const assignment of ["latitude=91", "longitude=-181", "latitude='NaN'", "longitude='Infinity'", "name='x'", "name=repeat('x',81)", "name=' City centre '", "name='My location'"]) {
+    await denied(`update public.glasgow_starting_areas set ${assignment} where id='station'`, '23514');
+  }
+  const areaBefore = (await rows("select * from public.glasgow_starting_areas where id='station'"))[0];
+  const moved = await rows("update public.glasgow_starting_areas set name='Station square',latitude=55.8595,longitude=-4.2585 where id='station' and updated_at=$1 returning *", [areaBefore.updated_at]);
+  check(moved.length === 1 && moved[0].latitude === 55.8595, 'Admin rename and reposition persist');
+  check((await rows("update public.glasgow_starting_areas set name='Stale' where id='station' and updated_at=$1 returning id", [areaBefore.updated_at])).length === 0, 'Stale area edits rejected');
+  check((await rows("delete from public.glasgow_starting_areas where id='station' and updated_at=$1 returning id", [areaBefore.updated_at])).length === 0, 'Stale area deletes rejected');
+  await as('anon');
+  check((await rows("select name,latitude from public.glasgow_starting_areas where id='station'"))[0].name === 'Station square', 'Separate public session sees new origin');
+  await as('authenticated', admin);
+  await db.exec("delete from public.glasgow_starting_areas where id='west'; update public.glasgow_starting_areas set latitude=55.861 where id='centre'");
+  await db.exec('reset role');
+  await db.exec(areaUpgrade);
+  await db.exec(setup);
+  check((await rows("select id from public.glasgow_starting_areas where id='west'")).length === 0, 'Repeated upgrade and fresh setup do not resurrect deleted areas');
+  check((await rows("select latitude from public.glasgow_starting_areas where id='centre'"))[0].latitude === 55.861, 'Repeated setup preserves moved origins');
+  await as('authenticated', admin);
+  await db.exec('delete from public.glasgow_starting_areas');
+  await db.exec('reset role');
+  await db.exec(areaUpgrade);
+  await as('anon');
+  check((await rows('select * from public.glasgow_starting_areas')).length === 0, 'An intentionally empty area list remains empty on upgrade');
   await as('anon');
   check((await rows('select * from public.glasgow_attractions')).length === 27, 'Anonymous visitors read the seeded catalogue');
   check((await rows('select public.is_attraction_admin() as allowed'))[0].allowed === false, 'Anonymous identity is not admin');

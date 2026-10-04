@@ -6,17 +6,13 @@ import { planAttractionWalk, WalkPlanningError, SEARCH_RADII_KM, defaultWalkLimi
 import type { Theme } from './tours';
 import type { Position } from './attractions';
 import { CatalogueError, loadPublicCatalogue } from './attraction-store';
+import { loadPublicStartingAreas, StartingAreaError } from './starting-area-store';
+import { useStartingAreas } from './use-starting-areas';
 
 type Mode = 'theme' | 'nearby';
-type Start = 'gps' | 'centre' | 'west' | 'east';
+type Start = string;
 type Status = 'idle' | 'locating' | 'planning' | 'ready' | 'error';
 
-const starts: { id: Start; label: string; pos?: Position }[] = [
-  { id: 'centre', label: 'City centre', pos: { lat: 55.8609, lon: -4.2514 } },
-  { id: 'west', label: 'West End', pos: { lat: 55.8745, lon: -4.2916 } },
-  { id: 'east', label: 'East End', pos: { lat: 55.8545, lon: -4.2372 } },
-  { id: 'gps', label: 'My location' },
-];
 const fmtKm = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
 
 type Props = {
@@ -31,6 +27,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const [mode, setMode] = useState<Mode | null>(null);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [start, setStart] = useState<Start>('gps');
+  const startingAreas = useStartingAreas();
   const [radius, setRadius] = useState(2);
   const [maxStops, setMaxStops] = useState(6);
   const [status, setStatus] = useState<Status>('idle');
@@ -60,7 +57,8 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   }, [entry]);
 
   const change = (fn: () => void) => { cancel(); fn(); };
-  const ready = mode === 'nearby' || (mode === 'theme' && themes.length > 0 && !categoriesLoading && !categoriesError && themes.every(theme => categories.includes(theme)));
+  const startReady = start === 'gps' || (!startingAreas.loading && !startingAreas.error && startingAreas.areas.some(area => area.id === start));
+  const ready = startReady && (mode === 'nearby' || (mode === 'theme' && themes.length > 0 && !categoriesLoading && !categoriesError && themes.every(theme => categories.includes(theme))));
 
   const go = async () => {
     if (!ready) return;
@@ -69,11 +67,19 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     const controller = new AbortController();
     abort.current = controller;
     try {
-      let origin = starts.find((s) => s.id === start)?.pos;
-      if (!origin) {
+      let origin: Position;
+      if (start === 'gps') {
         setStatus('locating');
         origin = await getPosition();
         if (id !== run.current) return;
+      } else {
+        setStatus('planning');
+        // Re-read before routing: removed or repositioned areas must not use stale coordinates.
+        const current = await loadPublicStartingAreas(controller.signal);
+        if (id !== run.current) return;
+        const selected = current.areas.find(area => area.id === start);
+        if (!selected) throw new StartingAreaError('That starting area is no longer available. Refresh the starting points and choose another.');
+        origin = { lat: selected.lat, lon: selected.lon };
       }
       setStatus('planning');
       const catalogue = await loadPublicCatalogue(controller.signal);
@@ -85,8 +91,8 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     } catch (e: any) {
       if (id !== run.current || e?.name === 'AbortError') return;
       let msg = 'Something went wrong planning this walk. Please try again.';
-      if (e instanceof WalkPlanningError || e instanceof CatalogueError) msg = e.message;
-      else if (e?.code === 1) msg = 'Location permission was declined. Nothing was saved. Pick City centre, West End or East End to plan a walk anyway.';
+      if (e instanceof WalkPlanningError || e instanceof CatalogueError || e instanceof StartingAreaError) msg = e.message;
+      else if (e?.code === 1) msg = 'Location permission was declined. Nothing was saved. Choose an available saved starting point to plan without GPS.';
       else if (typeof e?.code === 'number') msg = e.message || 'Your position could not be found. Pick a Glasgow starting point instead.';
       setError(msg); setStatus('error');
     }
@@ -155,10 +161,16 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
             </div>
           )}
           <div>
-            <span className="field-label">Starting point</span>
-            <div className="chip-row">
-              {starts.map((s) => <button key={s.id} className={`chip${start === s.id ? ' active' : ''}`} aria-pressed={start === s.id} onClick={() => change(() => setStart(s.id))} data-testid={`button-start-${s.id}`}>{s.label}</button>)}
+            <span className="field-label" id="planner-start-label">Starting point</span>
+            <div className="chip-row" role="group" aria-labelledby="planner-start-label">
+              {startingAreas.areas.map((area) => <button key={area.id} className={`chip${start === area.id ? ' active' : ''}`} aria-pressed={start === area.id} disabled={startingAreas.loading || Boolean(startingAreas.error)} onClick={() => change(() => setStart(area.id))} data-testid={`button-start-${area.id}`}>{area.name}</button>)}
+              <button className={`chip${start === 'gps' ? ' active' : ''}`} aria-pressed={start === 'gps'} onClick={() => change(() => setStart('gps'))} data-testid="button-start-gps">My location</button>
             </div>
+            {startingAreas.loading && <p className="planner-note" role="status">Loading starting points…</p>}
+            {startingAreas.error && <div className="planner-msg" role="alert" data-testid="status-starting-areas-error">{startingAreas.error} <button className="chip" onClick={() => void startingAreas.refresh()}>Retry starting points</button> You can still use My location.</div>}
+            {startingAreas.notice && <p className="planner-note" role="status" data-testid="status-starting-areas-notice">{startingAreas.notice}</p>}
+            {!startingAreas.loading && !startingAreas.error && startingAreas.areas.length === 0 && <p className="planner-note">No saved starting points are available. Use My location to plan with GPS.</p>}
+            {!startingAreas.loading && !startingAreas.error && start !== 'gps' && !startReady && <p className="planner-msg" role="alert">Your selected starting area was removed. Choose another starting point.</p>}
           </div>
           <div>
             <span className="field-label">Search radius</span>

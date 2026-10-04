@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "include": [
+    "tests/starting-areas/harness.tsx",
     "tests/walk-browser/harness.tsx",
     "tests/walk-browser/walk-list-harness.tsx",
     "tests/walk-browser/map-harness.tsx",

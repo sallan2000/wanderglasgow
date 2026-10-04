@@ -41,6 +41,16 @@ Only approved administrators can add categories. Public visitors and ordinary si
 
 Both **Pick categories** and **Explore nearby** load the published attraction catalogue anew when a walk is requested. Pick categories accepts one or more choices and excludes all non-selected categories. Draft attractions are excluded even if an administrator is browsing the visitor site. Search choices are 1, 2, 3, 4, 5 and “5 km+”; the latter searches up to 10 km on foot with a 15 km total-walk limit, while other choices retain a 5 km total-walk limit.
 
+## Managing walking starting areas
+
+Open **Admin → Attractions → Manage starting areas** to add a starting point, rename it, move its pin, or remove it with confirmation. Coordinates can also be entered by hand if the map is unavailable. Names must be unique regardless of capitalisation, 2–80 characters long, and cannot be “My location” (the separate GPS option). Saved areas are immediately public; they are route origins, not attraction categories or neighborhood filters.
+
+For an existing installation, download `starting-areas-upgrade.sql` from the management panel and run the whole script in your own Supabase SQL Editor, then click Refresh. The original Supabase setup must already be installed. Fresh `setup.sql` includes this extension. It seeds City centre, West End, and East End with their original coordinates once. Re-running either script preserves custom entries, edits, deletions, attractions, curated walks, and administrator access.
+
+Visitors read the saved names and coordinates on page load, focus, and every minute while visible; selecting a saved point rechecks its current coordinates before planning. Only approved administrators can write, with database-enforced permissions and stale-edit protection. An empty saved list stays empty, leaving GPS available. Only an unconfigured or not-yet-installed table shows the original three points with a notice; genuine service failures show a retry instead.
+
+Run `npm run test:starting-areas` for isolated storage request/validation checks and `npm run test:admin` for real PostgreSQL permissions and upgrade preservation checks. `npm run test:starting-areas:browser` renders the actual admin form, public planner, and storage code against a fixture-only transport, covering CRUD, failed saves/deletes, removed origins, empty/error/retry states, mobile layout, and keyboard dialogs. It blocks external requests and never writes to the owner's Supabase project. It uses the same Chromium setup described in the walk-editor browser section below.
+
 ## Creating curated walks
 
 For an existing Supabase installation, sign in and choose **Curated walks**. Download `curated-walks-upgrade.sql` from the setup message, run its complete contents in your Supabase project's SQL Editor, and refresh. Fresh installs already include it in `setup.sql`. The upgrade imports the original eight walks once and preserves existing attractions, custom categories and admin authorisations. Re-running setup or the upgrade will not overwrite edits or resurrect deleted walks.

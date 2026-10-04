@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Plus, RefreshCw, Tags, Trash2 } from 'lucide-react';
+import { MapPin, Pencil, Plus, RefreshCw, Tags, Trash2 } from 'lucide-react';
 import { listManagedAttractions, deleteAttraction, listAttractionCategories, sortCategoryNames, CategorySetupError, CatalogueError, type ManagedAttraction } from './attraction-store';
 import AdminEditor from './AdminEditor';
 import AdminCategories from './AdminCategories';
+import AdminStartingAreas from './AdminStartingAreas';
 import { DEFAULT_CATEGORIES } from './tours';
 
 type Editing = { item?: ManagedAttraction; key: number } | null;
@@ -29,6 +30,8 @@ export default function AdminManager({ onSignOut }: Props) {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoryError, setCategoryError] = useState('');
   const [categoryNeedsSetup, setCategoryNeedsSetup] = useState(false);
+  const [startOpen, setStartOpen] = useState(false);
+  const [startDirty, setStartDirty] = useState(false);
   const categorySeq = useRef(0);
   const alive = useRef(true);
   const seq = useRef(0);
@@ -76,11 +79,11 @@ export default function AdminManager({ onSignOut }: Props) {
   const categoryOptions = useMemo(() => sortCategoryNames([...categories, ...items.map(item => item.theme)]), [categories, items]);
 
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && !startDirty) return;
     const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
-  }, [dirty]);
+  }, [dirty, startDirty]);
   useEffect(() => {
     if (!editing) return;
     document.body.style.overflow = 'hidden';
@@ -138,11 +141,13 @@ export default function AdminManager({ onSignOut }: Props) {
             setCategoriesOpen(!categoriesOpen);
             if (!categoriesOpen) void loadCategories();
           }} data-testid="button-manage-categories"><Tags size={15} /> Manage categories</button>
+          <button className="adm-btn" aria-expanded={startOpen} aria-controls="admin-starting-areas" disabled={startOpen} onClick={() => setStartOpen(true)} data-testid="button-manage-starting-areas"><MapPin size={15} /> Manage starting areas</button>
           <button className="adm-btn pri" onClick={() => open()} data-testid="button-add-attraction"><Plus size={15} /> Add attraction</button>
         </div>
       </div>
       {categoriesOpen && <AdminCategories categories={categories} loading={categoriesLoading} error={categoryError}
         needsSetup={categoryNeedsSetup} onAdded={categoryAdded} onRefresh={() => void loadCategories()} onClose={() => setCategoriesOpen(false)} />}
+      {startOpen && <AdminStartingAreas onClose={() => setStartOpen(false)} onDirty={setStartDirty} />}
       <div className="adm-tools">
         <input className="adm-in" type="search" placeholder="Search by name or address" aria-label="Search attractions" value={q} onChange={(e) => setQ(e.target.value)} data-testid="input-search" />
         <select className="adm-in" aria-label="Filter by category" value={theme} onChange={(e) => setTheme(e.target.value)} data-testid="select-theme-filter">

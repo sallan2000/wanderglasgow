@@ -10,6 +10,8 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:planner": "node scripts/test-planner.mjs",
+    "test:starting-areas": "node scripts/test-starting-areas.mjs",
+    "test:starting-areas:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.starting-areas.config.mjs",
     "test:walks": "node scripts/test-curated-walks.mjs",
     "test:walks:browser": "tsc -p tsconfig.walk-browser.json --noEmit && { playwright test --config playwright.walks.config.mjs; walk_status=$?; playwright test --config playwright.walk-list.config.mjs; list_status=$?; [ $walk_status -eq 0 ] && [ $list_status -eq 0 ]; }",
     "test:walks:list:browser": "tsc -p tsconfig.walk-browser.json --noEmit && playwright test --config playwright.walk-list.config.mjs",

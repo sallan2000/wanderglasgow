@@ -15,6 +15,8 @@ const server = await createServer({
       name: 'isolated-walk-components',
       enforce: 'pre',
       resolveId(id, importer) {
+        if ((importer?.endsWith('/src/WalkPlanner.tsx') || importer?.endsWith('/src/use-starting-areas.ts')) && id === './starting-area-store')
+          return resolve(fixtures, 'planner-starting-areas.ts');
         if (importer?.endsWith('/src/AdminAuth.tsx') && id === './attraction-store')
           return resolve(fixtures, 'auth-transport.ts');
         if (importer?.endsWith('/src/AdminPortal.tsx') && id === './attraction-store')

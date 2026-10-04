@@ -97,3 +97,8 @@ textarea.adm-in{padding:12px 14px;min-height:130px;resize:vertical;line-height:1
  .adm-category-panel{padding:18px}.adm-category-form{grid-template-columns:1fr}.adm-category-form .adm-btn{justify-self:start}
 }
 @media(prefers-reduced-motion:reduce){.adm *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.adm-start-list{list-style:none;padding:0;margin:20px 0;border-top:1px solid var(--line)}
+.adm-start-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.adm-start-row strong{display:flex;align-items:center;gap:6px;overflow-wrap:anywhere}
+.adm-start-row span{display:block;font:12px var(--app-font-mono);color:var(--ink-soft);margin-top:4px}
+.adm-start-form{border-top:1px solid var(--line);padding-top:20px}
