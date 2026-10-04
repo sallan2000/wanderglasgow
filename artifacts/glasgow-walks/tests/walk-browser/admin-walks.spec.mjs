@@ -116,6 +116,30 @@ test('a failed list refresh keeps saved walks visible and allows retry', async (
   await verify();
 });
 
+test('an initial list failure shows retry instead of the empty state and recovers', async ({ page }) => {
+  const verify = await isolateWalkList(page);
+  await page.evaluate(() => window.walkListFixture.rejectList(0, 'Initial load failed: permission denied.'));
+
+  await expect(page.getByTestId('walk-status-list-error')).toContainText('Initial load failed: permission denied.');
+  await expect(page.getByTestId('walk-button-retry-list')).toBeVisible();
+  await expect(page.getByTestId('walk-status-empty')).toHaveCount(0);
+
+  await page.getByTestId('walk-button-retry-list').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.listRequests.length)).toBe(2);
+  await expect(page.getByTestId('walk-status-list-error')).toHaveCount(0);
+
+  await page.evaluate(rows => window.walkListFixture.resolveList(1, rows), [
+    walk('walk-a', 'Riverside Route'),
+    walk('walk-b', 'Museum Loop', 'Museums'),
+  ]);
+
+  await expect(page.getByTestId('walk-row-walk-a')).toBeVisible();
+  await expect(page.getByTestId('walk-row-walk-b')).toBeVisible();
+  await expect(page.getByTestId('walk-status-list-error')).toHaveCount(0);
+  await expect(page.getByTestId('walk-status-empty')).toHaveCount(0);
+  await verify();
+});
+
 test('a late list refresh cannot restore a successfully deleted walk', async ({ page }) => {
   const verify = await isolateWalkList(page);
   const deleted = walk('walk-a', 'Riverside Route');
