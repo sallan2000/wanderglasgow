@@ -93,6 +93,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
       let msg = 'Something went wrong planning this walk. Please try again.';
       if (e instanceof WalkPlanningError || e instanceof CatalogueError || e instanceof StartingAreaError) msg = e.message;
       else if (e?.code === 1) msg = 'Location permission was declined. Nothing was saved. Choose an available saved starting point to plan without GPS.';
+      else if (e?.code === 2 || e?.code === 3) msg = 'Your position could not be found. Pick a Glasgow starting point instead.';
       else if (typeof e?.code === 'number') msg = e.message || 'Your position could not be found. Pick a Glasgow starting point instead.';
       setError(msg); setStatus('error');
     }

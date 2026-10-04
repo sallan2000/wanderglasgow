@@ -202,34 +202,52 @@ test('visitor GPS permission is mocked and requested only after the plan button 
   await verify({ geolocationRequests: 1 });
 });
 
-test('visitor can use a fixed start after denying GPS without losing walk options', async ({ page }) => {
-  const verify = await isolateMaps(page, { denyGeolocation: true });
-  await openMapFixture(page, 'planner');
-  await page.getByTestId('button-mode-theme').click();
-  await page.getByTestId('button-theme-history').click();
-  await page.getByTestId('button-theme-architecture').click();
-  await page.getByTestId('button-radius-3').click();
-  await page.getByTestId('button-stops-4').click();
-  expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(0);
+for (const gpsError of [
+  {
+    name: 'denying GPS access',
+    options: { denyGeolocation: true },
+    message: 'Location permission was declined. Nothing was saved.',
+  },
+  {
+    name: 'an unavailable position',
+    options: { geolocationErrorCode: 2 },
+    message: 'Your position could not be found. Pick a Glasgow starting point instead.',
+  },
+  {
+    name: 'a timed-out position',
+    options: { geolocationErrorCode: 3 },
+    message: 'Your position could not be found. Pick a Glasgow starting point instead.',
+  },
+]) {
+  test(`visitor can use a fixed start after ${gpsError.name} without losing walk options`, async ({ page }) => {
+    const verify = await isolateMaps(page, gpsError.options);
+    await openMapFixture(page, 'planner');
+    await page.getByTestId('button-mode-theme').click();
+    await page.getByTestId('button-theme-history').click();
+    await page.getByTestId('button-theme-architecture').click();
+    await page.getByTestId('button-radius-3').click();
+    await page.getByTestId('button-stops-4').click();
+    expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(0);
 
-  await page.getByTestId('button-plan-route').click();
-  await expect(page.getByTestId('status-planner-error'))
-    .toContainText('Location permission was declined. Nothing was saved.');
-  await expect(page.getByTestId('button-theme-history')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('button-theme-architecture')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('button-radius-3')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('button-stops-4')).toHaveAttribute('aria-pressed', 'true');
-  expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(1);
+    await page.getByTestId('button-plan-route').click();
+    await expect(page.getByTestId('status-planner-error'))
+      .toContainText(gpsError.message);
+    await expect(page.getByTestId('button-theme-history')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('button-theme-architecture')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('button-radius-3')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('button-stops-4')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(1);
 
-  await page.getByTestId('button-start-centre').click();
-  await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
-  await page.getByTestId('button-plan-route').click();
-  await expect(page.getByTestId('result-plan')).toBeVisible();
-  await expect(page.locator('.leaflet-container')).toBeVisible();
-  expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(1);
-  expect(await page.evaluate(() => plannerFixture.planCalls)).toEqual([{
-    origin: { lat: 55.8609, lon: -4.2514 },
-    options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4 },
-  }]);
-  await verify({ geolocationRequests: 1 });
-});
+    await page.getByTestId('button-start-centre').click();
+    await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('button-plan-route').click();
+    await expect(page.getByTestId('result-plan')).toBeVisible();
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(1);
+    expect(await page.evaluate(() => plannerFixture.planCalls)).toEqual([{
+      origin: { lat: 55.8609, lon: -4.2514 },
+      options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4 },
+    }]);
+    await verify({ geolocationRequests: 1 });
+  });
+}
