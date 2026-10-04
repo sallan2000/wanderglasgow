@@ -324,6 +324,42 @@ test('admin auth returns to a clean sign-in screen after signing out', async ({ 
   await expect.poll(() => page.evaluate(() => window.authFixture.signedOutSessions)).toEqual([null]);
 });
 
+test('admin auth rechecks access after another account signs in', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html');
+
+  await expect(page.getByTestId('text-session-email')).toHaveText('admin@example.invalid');
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.authFixture.adminCheckUserIds)).toEqual([
+    'fixture-admin',
+  ]);
+
+  await page.evaluate(() => {
+    window.authFixture.holdAdminCheck('fixture-visitor');
+    window.authFixture.switchAccount('fixture-visitor', 'visitor@example.invalid', false);
+  });
+
+  await expect(page.getByRole('heading', { name: 'Checking your access', exact: true })).toBeVisible();
+  await expect(page.getByTestId('fixture-admin-portal')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-walks')).toHaveCount(0);
+  await page.evaluate(() => window.authFixture.releaseAdminCheck('fixture-visitor'));
+
+  await expect(page.getByRole('heading', { name: 'Access denied', exact: true })).toBeVisible();
+  await expect(page.getByTestId('text-denied-email')).toHaveText('visitor@example.invalid');
+  await expect(page.getByTestId('fixture-admin-portal')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-walks')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.authFixture.adminCheckUserIds)).toEqual([
+    'fixture-admin',
+    'fixture-visitor',
+  ]);
+  await expect.poll(() => page.evaluate(() => window.authFixture.adminCheckResults)).toEqual([
+    true,
+    false,
+  ]);
+  await expect.poll(() => page.evaluate(() => window.authFixture.authEvents)).toEqual(['SIGNED_IN']);
+});
+
 test('admin auth reports an expired recovery link and keeps the password form available', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html?update=expired#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
