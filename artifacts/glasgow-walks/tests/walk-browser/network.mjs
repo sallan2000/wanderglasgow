@@ -29,6 +29,11 @@ export async function isolate(page, options = {}) {
   const unexpected = [];
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.addInitScript(`document.addEventListener('load', event => {
+    if (event.target?.dataset?.leaflet === 'true' && window.L) {
+      (() => { ${instrumentation} })();
+    }
+  }, true);`);
   await page.addInitScript(() => {
     // Track actual ResizeObserver ownership before Leaflet is available.
     window.observerFixture = { observed: 0, disconnected: 0, live: 0 };
@@ -53,19 +58,19 @@ export async function isolate(page, options = {}) {
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js') {
       scriptRequests++;
       if (options.holdFirst && scriptRequests === 1) {
-        options.releaseScript = () => route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation });
+        options.releaseScript = () => route.fulfill({ contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body: leaflet });
         return;
       }
       if (options.timeoutFirst && scriptRequests === 1) {
         options.releaseScript = () => route.abort();
         return; // Deliberately hold until after the loader times out.
       }
-      return route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation });
+      return route.fulfill({ contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body: leaflet });
     }
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css') {
       cssRequests++;
       if (options.cssErrorFirst && cssRequests === 1) return route.abort();
-      return route.fulfill({ contentType: 'text/css', body: css });
+      return route.fulfill({ contentType: 'text/css', headers: { 'Access-Control-Allow-Origin': '*' }, body: css });
     }
     if (url.hostname.endsWith('.tile.openstreetmap.org'))
       return options.tileErrors ? route.abort() : route.fulfill({ contentType: 'image/png', body: transparentTile });

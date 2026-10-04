@@ -31,6 +31,11 @@ The public key cannot create tables or grant admin access, so steps 2–4 must b
 
 ## Attraction management and security
 
+See [the security review and launch checklist](docs/security-review.md) for
+integrity-protected map loading, supplied production response headers and a
+read-only Supabase policy audit. The local scans/tests do not certify live
+Supabase settings or headers on a separate host.
+
 An attraction has a name, description, optional location/address label, precise latitude/longitude, **exactly one** category from the shared category list, and published/draft status. The original categories are Art, Music, History and Sport. Administrators can choose a point on the map, drag the pin, or enter coordinates directly. Saves persist to Supabase and update the visible list. Deletes require confirmation; stale updates/deletes are rejected using server-owned timestamps.
 
 ### Add custom categories

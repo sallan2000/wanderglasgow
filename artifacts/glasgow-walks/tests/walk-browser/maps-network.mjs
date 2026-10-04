@@ -39,6 +39,13 @@ export async function isolateMaps(page, options = {}) {
   const unexpected = [];
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
+  // Instrument after the real, integrity-checked library loads; modifying its
+  // response bytes would correctly be rejected by production's SRI guard.
+  await page.addInitScript(`document.addEventListener('load', event => {
+    if (event.target?.dataset?.leaflet === 'true' && window.L) {
+      (() => { ${instrumentation(options.failMapFirst)} })();
+    }
+  }, true);`);
   await page.addInitScript(({ denyGeolocation, geolocationErrorCode, failAfterPreviewObserve }) => {
     window.geolocationFixture = { requests: [] };
     Object.defineProperty(navigator, 'geolocation', {
@@ -102,14 +109,15 @@ export async function isolateMaps(page, options = {}) {
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js') {
       scriptRequests++;
       if (options.holdFirst && scriptRequests === 1) {
-        options.releaseScript = () => route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation(options.failMapFirst) });
+        options.releaseScript = () => route.fulfill({ contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body: leaflet });
         return;
       }
       if (options.failFirst && scriptRequests === 1) return route.abort();
-      return route.fulfill({ contentType: 'text/javascript', body: leaflet + instrumentation(options.failMapFirst) });
+      return route.fulfill({ contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' },
+        body: options.tamperFirst && scriptRequests === 1 ? leaflet + '\nwindow.tamperedLibraryExecuted = true;' : leaflet });
     }
     if (url.href === 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css')
-      return route.fulfill({ contentType: 'text/css', body: leafletCss });
+      return route.fulfill({ contentType: 'text/css', headers: { 'Access-Control-Allow-Origin': '*' }, body: leafletCss });
     if (url.hostname.endsWith('.tile.openstreetmap.org')) {
       if (options.failTileRequests) return route.abort();
       return route.fulfill({ contentType: 'image/png', body: transparentTile });

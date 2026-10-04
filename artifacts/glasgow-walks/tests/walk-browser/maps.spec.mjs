@@ -1,5 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { isolateMaps, openMapFixture, planAtCentre, planWithCentre, markerCoordinates } from './maps-network.mjs';
+import { readFile } from 'node:fs/promises';
+
+test('supplied production policy blocks inline scripts and eval while allowing integrity-checked maps', async ({ page }) => {
+  const verify = await isolateMaps(page);
+  const policy = await readFile(new URL('../../public/_headers', import.meta.url), 'utf8');
+  const headers = Object.fromEntries(policy.split('\n').filter(line => /^  [A-Z]/.test(line)).map(line => {
+    const split = line.indexOf(':');
+    return [line.slice(0, split).trim(), line.slice(split + 1).trim()];
+  }));
+  await page.route('**/tests/walk-browser/security-policy.html', route => route.fulfill({
+    contentType: 'text/html', headers, body: '<div id="security-result">waiting</div><script>window.inlineAttack=true</script><script type="module" src="/tests/walk-browser/security-module.js"></script>',
+  }));
+  await page.route('**/tests/walk-browser/security-module.js', route => route.fulfill({
+    contentType: 'text/javascript', body: `
+      import { loadLeaflet } from '/src/browser-helpers.ts';
+      const result = document.getElementById('security-result');
+      try { eval('window.evalAttack = true'); } catch { result.dataset.evalBlocked = 'true'; }
+      await loadLeaflet();
+      result.textContent = 'trusted library ready';
+    `,
+  }));
+  await page.goto('/tests/walk-browser/security-policy.html');
+  await expect(page.locator('#security-result')).toHaveText('trusted library ready');
+  await expect(page.locator('#security-result')).toHaveAttribute('data-eval-blocked', 'true');
+  expect(await page.evaluate(() => Boolean(window.inlineAttack || window.evalAttack))).toBe(false);
+  await verify();
+});
 
 async function fireTileErrorAndClickRetry(page, tiles, noticeTestId, retryTestId) {
   return page.evaluate(([layer, noticeId, retryId]) => new Promise(resolve => {
@@ -27,6 +54,20 @@ async function fireTileErrorAndClickRetry(page, tiles, noticeTestId, retryTestId
 }
 
 for (const component of ['planner', 'admin']) {
+  test(`${component} rejects a tampered CDN library without executing it and retries only trusted bytes`, async ({ page }) => {
+    const verify = await isolateMaps(page, { tamperFirst: true });
+    await openMapFixture(page, component);
+    if (component === 'planner') await planAtCentre(page);
+    await expect(page.getByTestId(component === 'planner' ? 'status-plan-map-error' : 'status-map-error'))
+      .toContainText('The map library or styles could not load');
+    expect(await page.evaluate(() => window.tamperedLibraryExecuted ?? false)).toBe(false);
+    expect(await page.evaluate(() => window.L ?? null)).toBeNull();
+    await page.getByTestId(component === 'planner' ? 'button-plan-map-retry' : 'button-map-retry').click();
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    expect(await page.evaluate(() => window.tamperedLibraryExecuted ?? false)).toBe(false);
+    await verify();
+  });
+
   test(`${component} map reports library failure and retries with a fresh map`, async ({ page }) => {
     const verify = await isolateMaps(page, { failFirst: true });
     await openMapFixture(page, component);

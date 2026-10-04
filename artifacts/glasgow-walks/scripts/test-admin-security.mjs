@@ -223,5 +223,9 @@ try {
   await denied(insert);
   await denied("insert into public.glasgow_attraction_categories (name) values ('Revoked category')");
   await denied("insert into public.glasgow_curated_walks (id,title,theme) values ('revoked-walk','Revoked walk','Art')");
+  await db.exec('reset role');
+  const audit = await db.exec(await readFile('supabase/security-audit.sql', 'utf8'));
+  check(audit.some(result => result.rows.some(row => Object.hasOwn(row, 'row_level_security'))),
+    'Owner read-only audit executes and reports database security metadata');
   console.log(`Admin database checks passed: ${checks} actual PostgreSQL permission, validation, persistence, conflict and seed-idempotency checks. No remote database was modified.`);
 } finally { await db.close(); }
