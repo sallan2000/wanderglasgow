@@ -11,7 +11,7 @@ A mobile-friendly, self-guided Glasgow walking-tour website with art, music, his
 - `pnpm --filter @workspace/glasgow-walks run typecheck` — check the app.
 - `pnpm --filter @workspace/glasgow-walks run build` — produce static files in `artifacts/glasgow-walks/dist/public`.
 - Attraction and curated-walk management use external Supabase. The original walks are one-time seeds and an explicitly labelled fallback only while shared walk storage is unconfigured/not installed. Build settings: `VITE_SUPABASE_URL` and public `VITE_SUPABASE_PUBLISHABLE_KEY`. No product API server or Replit database. Geolocation requires HTTPS.
-- See `artifacts/glasgow-walks/README.md` for independent-host build instructions and external mapping-service assumptions.
+- See the root `README.md` for Wander Glasgow's independent-host build instructions, visitor/admin guides and external mapping-service assumptions.
 
 ## Stack
 

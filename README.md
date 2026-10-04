@@ -87,14 +87,14 @@ pnpm --filter @workspace/glasgow-walks run build
 
 Upload **the contents of `artifacts/glasgow-walks/dist/public`** to a static HTTPS host. No Replit API server or database needs to run. Configure an SPA fallback so the admin path serves `index.html`, while real assets and `.sql` downloads remain served normally. If deploying under a subpath, build with the matching `BASE_PATH`.
 
-The build copies `public/_headers` for compatible hosts such as Netlify/Cloudflare Pages. Other hosts require equivalent header configuration. Verify the actual deployed responses, including `/admin`; merely uploading this file is not proof the headers are active. The supplied policy intentionally blocks framing and needs an explicit adjustment for custom Supabase domains. See [the security checklist](docs/security-review.md).
+The build copies `artifacts/glasgow-walks/public/_headers` for compatible hosts such as Netlify/Cloudflare Pages. Other hosts require equivalent header configuration. Verify the actual deployed responses, including `/admin`; merely uploading this file is not proof the headers are active. The supplied policy intentionally blocks framing and needs an explicit adjustment for custom Supabase domains. See [the security checklist](artifacts/glasgow-walks/docs/security-review.md).
 
 ## One-time Supabase setup
 
-1. From the repository root run `pnpm --filter @workspace/glasgow-walks run setup:export`, or build the app. This generates `public/setup.sql` with 27 initial attractions and eight original curated walks, plus `public/grant-admin.sql`, inside this artifact. Use these repository files for owner setup; the normal sign-in/password-reset forms do not show setup downloads.
-2. In your own Supabase project's **SQL Editor**, run the contents of `public/setup.sql`. It creates `public.glasgow_attractions`, a private administrator allow-list, constraints and row-level security. It seeds once: re-running the script preserves later edits and deletions. It does not overwrite another database or grant an arbitrary first user admin rights.
+1. From the repository root run `pnpm --filter @workspace/glasgow-walks run setup:export`, or build the app. This generates `artifacts/glasgow-walks/public/setup.sql` with 27 initial attractions and eight original curated walks, plus `artifacts/glasgow-walks/public/grant-admin.sql`. Use these repository files for owner setup; the normal sign-in/password-reset forms do not show setup downloads.
+2. In your own Supabase project's **SQL Editor**, run the contents of `artifacts/glasgow-walks/public/setup.sql`. It creates `public.glasgow_attractions`, a private administrator allow-list, constraints and row-level security. It seeds once: re-running the script preserves later edits and deletions. It does not overwrite another database or grant an arbitrary first user admin rights.
 3. Under **Authentication → Users**, create your administrator account with your own email/password and confirm the account. You can use the dashboard's confirmed-user creation; keep passwords out of project files and build variables.
-4. Copy `supabase/grant-admin.sql` into SQL Editor, replace `REPLACE_WITH_ADMIN_EMAIL` with that account's email, then run it. Only project-owner SQL access can authorise an administrator; signing up or setting user metadata cannot.
+4. Copy `artifacts/glasgow-walks/supabase/grant-admin.sql` into SQL Editor, replace `REPLACE_WITH_ADMIN_EMAIL` with that account's email, then run it. Only project-owner SQL access can authorise an administrator; signing up or setting user metadata cannot.
 5. Visit `/admin` and sign in. There is no public registration screen. For this admin-only app, disable public user sign-ups in Supabase's Auth settings.
 6. Configure Supabase Authentication URL settings: set the Site URL to your own HTTPS website and allow its exact `/admin` URL for password recovery. Add the exact development `/admin` URL if testing reset emails in development. Configure your own email delivery for reliable recovery; review Supabase's email limits and provider policies.
 
@@ -112,7 +112,7 @@ The portal has **Attractions** and **Curated walks** sections. Saving is explici
 
 ### Attractions
 
-See [the security review and launch checklist](docs/security-review.md) for
+See [the security review and launch checklist](artifacts/glasgow-walks/docs/security-review.md) for
 integrity-protected map loading, supplied production response headers and a
 read-only Supabase policy audit. The local scans/tests do not certify live
 Supabase settings or headers on a separate host.
@@ -129,7 +129,7 @@ Names are case-insensitively unique (2–200 characters). Descriptions require 1
 
 ### Add custom categories
 
-If the original four-category database is already installed, download `categories-upgrade.sql` from **Admin → Manage categories** (or use `public/categories-upgrade.sql` in this artifact) and run its entire contents in the same Supabase project's SQL Editor. This one-time, re-runnable update preserves attraction data, timestamps, drafts and administrator access. Fresh installations already include it in `setup.sql`.
+If the original four-category database is already installed, download `categories-upgrade.sql` from **Admin → Manage categories** (or use `artifacts/glasgow-walks/public/categories-upgrade.sql` in this repository) and run its entire contents in the same Supabase project's SQL Editor. This one-time, re-runnable update preserves attraction data, timestamps, drafts and administrator access. Fresh installations already include it in `artifacts/glasgow-walks/public/setup.sql`.
 
 After upgrading, open **Manage categories**, enter a name of 2–40 characters, and click **Add category**. Category names are unique regardless of capitalisation; `All` is reserved for the unfiltered view. New categories persist in Supabase and appear immediately in the current admin session's editor and filter. Visitor choices refresh on page load and when returning focus to the page. An empty category can be selected, but planning reports that no published matching attractions are available.
 
@@ -141,13 +141,13 @@ Both **Pick categories** and **Explore nearby** load the published attraction ca
 
 Open **Admin → Attractions → Manage starting areas** to add a starting point, rename it, move its pin, or remove it with confirmation. Coordinates can also be entered by hand if the map is unavailable. Names must be unique regardless of capitalisation, 2–80 characters long, and cannot be “My location” (the separate GPS option). Saved areas are immediately public; they are route origins, not attraction categories or neighborhood filters.
 
-For an existing installation, download `starting-areas-upgrade.sql` from the management panel and run the whole script in your own Supabase SQL Editor, then click Refresh. The original Supabase setup must already be installed. Fresh `setup.sql` includes this extension. It seeds City centre, West End, and East End with their original coordinates once. Re-running either script preserves custom entries, edits, deletions, attractions, curated walks, and administrator access.
+For an existing installation, download `starting-areas-upgrade.sql` from the management panel and run the whole script in your own Supabase SQL Editor, then click Refresh. The original Supabase setup must already be installed. Fresh `artifacts/glasgow-walks/public/setup.sql` includes this extension. It seeds City centre, West End, and East End with their original coordinates once. Re-running either script preserves custom entries, edits, deletions, attractions, curated walks, and administrator access.
 
 Visitors read the saved names and coordinates on page load, focus, and every minute while visible; selecting a saved point rechecks its current coordinates before planning. Only approved administrators can write, with database-enforced permissions and stale-edit protection. An empty saved list stays empty, leaving GPS available. Only an unconfigured or not-yet-installed table shows the original three points with a notice; genuine service failures show a retry instead.
 
 ### Curated walks
 
-For an existing Supabase installation, sign in and choose **Curated walks**. Download `curated-walks-upgrade.sql` from the setup message, run its complete contents in your Supabase project's SQL Editor, and refresh. Fresh installs already include it in `setup.sql`. The upgrade imports the original eight walks once and preserves existing attractions, custom categories and admin authorisations. Re-running setup or the upgrade will not overwrite edits or resurrect deleted walks.
+For an existing Supabase installation, sign in and choose **Curated walks**. Download `curated-walks-upgrade.sql` from the setup message, run its complete contents in your Supabase project's SQL Editor, and refresh. Fresh installs already include it in `artifacts/glasgow-walks/public/setup.sql`. The upgrade imports the original eight walks once and preserves existing attractions, custom categories and admin authorisations. Re-running setup or the upgrade will not overwrite edits or resurrect deleted walks.
 
 1. In **Curated walks**, search by title/subtitle, filter by category or draft/published status, and refresh the list as needed.
 2. Choose **Add walk** or edit an existing walk. Enter a title, subtitle and category.
@@ -163,19 +163,20 @@ Walks can be searched, edited, unpublished by saving as a draft, or deleted with
 The visitor site reads only published walks, including added walks and edits to originals. It refreshes on focus and every minute while visible; reload also fetches the current catalogue. Only an explicitly unconfigured/not-installed shared table shows the original-walk fallback, with a notice. A genuine service failure is reported, and an intentionally empty catalogue stays empty.
 
 ## Shared data and permissions
+
 Before storage is installed, visitor planning explicitly announces that it is using the original catalogue. After installation, a deliberately empty catalogue stays empty; live service failures show errors rather than silently using stale seed data.
 
 Public visitors and ordinary signed-in users can read only published attractions. The database enforces all insert/update/delete permissions against the private admin allow-list. It also checks categories, coordinates, text lengths and duplicate names. Remove a user from `glasgow_walks_private.admin_users` in the SQL Editor to revoke editing access immediately.
 
 Supabase manages authentication, session refresh and password recovery. The website never stores admin passwords. An administrator's session token is stored by the SDK in browser storage; use a trusted device and sign out when finished. User-authored names/descriptions are rendered as text, including map tooltips.
 
-Fresh `setup.sql` includes the catalogue, categories, starting areas and curated-walk extensions. For an older installation, run only the relevant supplied upgrades: `categories-upgrade.sql`, `starting-areas-upgrade.sql` and/or `curated-walks-upgrade.sql`. They are exported to `public/`, re-runnable and designed to preserve edits, deletions and authorisations. The separate email upgrade is optional and is not enabled by fresh catalogue setup.
+Fresh `artifacts/glasgow-walks/public/setup.sql` includes the catalogue, categories, starting areas and curated-walk extensions. For an older installation, run only the relevant supplied upgrades: `categories-upgrade.sql`, `starting-areas-upgrade.sql` and/or `curated-walks-upgrade.sql`. They are exported to `artifacts/glasgow-walks/public/`, re-runnable and designed to preserve edits, deletions and authorisations. The separate email upgrade is optional and is not enabled by fresh catalogue setup.
 
 ## Emailing walks
 
 Visitors can use **Email this walk** on a completed planner result or in a curated-walk detail view. They enter their own address, explicitly consent to sharing the itinerary, complete a security check, and send. The form reports provider acceptance, not guaranteed inbox delivery. It remains available when the map cannot load.
 
-Email delivery is disabled until the owner completes [the email setup guide](docs/email-delivery.md): verify a sender domain in Resend, configure Cloudflare Turnstile, run `public/email-delivery-upgrade.sql`, set the function's private secrets in Supabase, deploy `send-walk-email`, and rebuild the website with its public Turnstile site key. Fresh setup alone does not enable sending. No Replit connector or email-provider secret belongs in the frontend.
+Email delivery is disabled until the owner completes [the email setup guide](artifacts/glasgow-walks/docs/email-delivery.md): verify a sender domain in Resend, configure Cloudflare Turnstile, run `artifacts/glasgow-walks/public/email-delivery-upgrade.sql`, set the function's private secrets in Supabase, deploy `send-walk-email`, and rebuild the website with its public Turnstile site key. Fresh setup alone does not enable sending. No Replit connector or email-provider secret belongs in the frontend.
 
 Emails contain readable stop itineraries and OpenStreetMap point links, not stored/shareable GPS tracks or turn-by-turn directions. Planner email includes the precise origin only after confirmation; curated email uses the latest published editorial stops from the listed start, never the visitor's GPS connector route. Stop prose is loaded from published database records, not accepted from the browser.
 
@@ -183,7 +184,7 @@ The app does not store addresses or routes or log request contents. The private 
 
 ## Automated checks
 
-From the repository root, run `pnpm --filter @workspace/glasgow-walks run <script>`. From this artifact directory, use `pnpm run <script>`.
+From the repository root, run `pnpm --filter @workspace/glasgow-walks run <script>`. From the artifact directory, use `pnpm run <script>`.
 
 | Script | Coverage |
 | --- | --- |
@@ -202,9 +203,9 @@ From the repository root, run `pnpm --filter @workspace/glasgow-walks run <scrip
 | `test:starting-areas:browser` | Starting-area management and public planner with isolated transport. |
 | `test:email:browser` | Visitor email forms and planning integration, including consent, errors, retries and keyboard/mobile states. |
 
-Browser suites start their own fixture servers and use Chromium; the app's workflow does not need to be running. On Replit the configurations can use `/repl/tools/bin/chromium`. Elsewhere, from this artifact run `pnpm exec playwright install chromium`, or set `WALK_TEST_CHROMIUM` to an existing executable. Failures retain screenshots/traces under `test-results/`.
+Browser suites start their own fixture servers and use Chromium; the app's workflow does not need to be running. On Replit the configurations can use `/repl/tools/bin/chromium`. Elsewhere, from this artifact run `pnpm exec playwright install chromium`, or set `WALK_TEST_CHROMIUM` to an existing executable. Failures retain screenshots/traces under `artifacts/glasgow-walks/test-results/`.
 
-The normal suites use local fixtures and/or isolated PGlite databases: they do not mutate the owner's Supabase project or send real email. They are not proof that live owner settings are correct. `pnpm run test:planner -- --live`, from this artifact, additionally calls the public foot-routing service using a fixed Glasgow example.
+The normal suites use local fixtures and/or isolated PGlite databases: they do not mutate the owner's Supabase project or send real email. They are not proof that live owner settings are correct. `pnpm run test:planner -- --live`, from the artifact directory, additionally calls the public foot-routing service using a fixed Glasgow example.
 
 ## Mapping and privacy
 
@@ -226,22 +227,22 @@ Tour information describes sightseeing stops, not guaranteed access or admission
 
 ## Important files
 
-Paths below are relative to `artifacts/glasgow-walks`.
+Paths below are relative to the repository root.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/App.tsx`, `src/WalkPlanner.tsx` | Visitor screens, curated details and generated-walk controls. |
-| `src/walk-planner.ts`, `src/efficient-walk-order.ts` | Foot-routing integration and bounded exact stop-order search. |
-| `src/AdminPortal.tsx`, `src/AdminAuth.tsx` | Admin session/access gate and password recovery. |
-| `src/AdminManager.tsx`, `src/AdminEditor.tsx`, `src/AdminCategories.tsx` | Attraction and category management. |
-| `src/AdminStartingAreas.tsx`, `src/starting-area-store.ts` | Starting-point management and storage. |
-| `src/AdminWalks.tsx`, `src/AdminWalkEditor.tsx`, `src/walk-store.ts` | Curated-walk editing, measurement and persistence. |
-| `src/attraction-store.ts`, `src/hooks/`, `src/use-starting-areas.ts` | Supabase access and public refresh/fallback behaviour. |
-| `src/browser-helpers.ts`, `src/map-tiles.tsx` | Integrity-checked Leaflet loading, geolocation and tile-failure handling. |
-| `src/tours.ts`, `src/attractions.ts` | Original seed/fallback content, not the live admin-editable database. |
-| `scripts/export-supabase-setup.mjs`, `supabase/`, `public/*.sql` | Owner-run database installation and upgrades. |
-| `supabase/functions/send-walk-email/` | Optional server-side email dispatch. |
-| `public/_headers`, `supabase/security-audit.sql` | Hosting-policy template and read-only live database audit. |
-| `docs/email-delivery.md`, `docs/security-review.md` | Owner setup, launch checks and remaining limitations. |
+| `artifacts/glasgow-walks/src/App.tsx`, `artifacts/glasgow-walks/src/WalkPlanner.tsx` | Visitor screens, curated details and generated-walk controls. |
+| `artifacts/glasgow-walks/src/walk-planner.ts`, `artifacts/glasgow-walks/src/efficient-walk-order.ts` | Foot-routing integration and bounded exact stop-order search. |
+| `artifacts/glasgow-walks/src/AdminPortal.tsx`, `artifacts/glasgow-walks/src/AdminAuth.tsx` | Admin session/access gate and password recovery. |
+| `artifacts/glasgow-walks/src/AdminManager.tsx`, `artifacts/glasgow-walks/src/AdminEditor.tsx`, `artifacts/glasgow-walks/src/AdminCategories.tsx` | Attraction and category management. |
+| `artifacts/glasgow-walks/src/AdminStartingAreas.tsx`, `artifacts/glasgow-walks/src/starting-area-store.ts` | Starting-point management and storage. |
+| `artifacts/glasgow-walks/src/AdminWalks.tsx`, `artifacts/glasgow-walks/src/AdminWalkEditor.tsx`, `artifacts/glasgow-walks/src/walk-store.ts` | Curated-walk editing, measurement and persistence. |
+| `artifacts/glasgow-walks/src/attraction-store.ts`, `artifacts/glasgow-walks/src/hooks/`, `artifacts/glasgow-walks/src/use-starting-areas.ts` | Supabase access and public refresh/fallback behaviour. |
+| `artifacts/glasgow-walks/src/browser-helpers.ts`, `artifacts/glasgow-walks/src/map-tiles.tsx` | Integrity-checked Leaflet loading, geolocation and tile-failure handling. |
+| `artifacts/glasgow-walks/src/tours.ts`, `artifacts/glasgow-walks/src/attractions.ts` | Original seed/fallback content, not the live admin-editable database. |
+| `artifacts/glasgow-walks/scripts/export-supabase-setup.mjs`, `artifacts/glasgow-walks/supabase/`, `artifacts/glasgow-walks/public/*.sql` | Owner-run database installation and upgrades. |
+| `artifacts/glasgow-walks/supabase/functions/send-walk-email/` | Optional server-side email dispatch. |
+| `artifacts/glasgow-walks/public/_headers`, `artifacts/glasgow-walks/supabase/security-audit.sql` | Hosting-policy template and read-only live database audit. |
+| `artifacts/glasgow-walks/docs/email-delivery.md`, `artifacts/glasgow-walks/docs/security-review.md` | Owner setup, launch checks and remaining limitations. |
 
 The workspace's API-server/database packages are unused scaffolds, not dependencies of this website's runtime.
