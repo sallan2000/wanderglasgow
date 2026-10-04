@@ -64,8 +64,12 @@ export default function AdminPortal() {
 
   const signOut = useCallback(async () => {
     if (!supabase) return;
-    const { error } = await supabase.auth.signOut();
-    if (error) setOutErr('Sign-out failed. Check your connection and try again.');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch {
+      setOutErr('Sign-out failed. Check your connection and try again.');
+    }
   }, []);
 
   if (!supabase) return (

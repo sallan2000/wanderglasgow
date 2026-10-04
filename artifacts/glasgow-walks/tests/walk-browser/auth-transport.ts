@@ -41,6 +41,7 @@ export const authFixture = {
   signInRequests: [] as SignInCall[],
   authEvents: [] as string[],
   signedOutSessions: [] as (typeof testSession | null)[],
+  signOutAttempts: 0,
   adminChecks: [] as boolean[],
   adminCheckUserIds: [] as string[],
   adminCheckResults: [] as boolean[],
@@ -143,6 +144,10 @@ const fixtureSupabase = {
       return { error: null };
     },
     async signOut() {
+      authFixture.signOutAttempts += 1;
+      if (params().get('signout') === 'reject-once' && authFixture.signOutAttempts === 1) {
+        throw new Error('Network request failed');
+      }
       authFixture.authEvents.push('SIGNED_OUT');
       currentSession = null;
       authFixture.signedOutSessions.push(null);

@@ -496,6 +496,38 @@ test('admin auth returns to a clean sign-in screen after signing out', async ({ 
   await expect.poll(() => page.evaluate(() => window.authFixture.signedOutSessions)).toEqual([null]);
 });
 
+test('admin auth keeps the session and allows retry when sign-out rejects', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html?signout=reject-once');
+
+  await expect(page.getByTestId('button-signout')).toBeVisible();
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await page.getByTestId('button-signout').click();
+
+  await expect(page.getByTestId('status-signout-error')).toHaveText(
+    'Sign-out failed. Check your connection and try again.',
+  );
+  await expect(page.getByTestId('button-signout')).toBeVisible();
+  await expect(page.getByTestId('text-session-email')).toHaveText('admin@example.invalid');
+  await expect(page.getByTestId('admin-tab-attractions')).toBeVisible();
+  await expect(page.getByTestId('admin-tab-walks')).toBeVisible();
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.authFixture.signOutAttempts)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.authFixture.authEvents)).toEqual([]);
+  await expect.poll(() => page.evaluate(() => window.authFixture.signedOutSessions)).toEqual([]);
+
+  await page.getByTestId('button-signout').click();
+
+  await expectCleanAuthScreen(page, 'Sign in');
+  await expect(page.getByTestId('button-signout')).toHaveCount(0);
+  await expect(page.getByTestId('text-session-email')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-walks')).toHaveCount(0);
+  await expect(page.getByTestId('fixture-admin-portal')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.authFixture.signOutAttempts)).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.authFixture.authEvents)).toEqual(['SIGNED_OUT']);
+  await expect.poll(() => page.evaluate(() => window.authFixture.signedOutSessions)).toEqual([null]);
+});
+
 test('admin auth rechecks access after another account signs in', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html');
 
