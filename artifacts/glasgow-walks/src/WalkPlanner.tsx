@@ -201,7 +201,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
 
       <div aria-live="polite">
         {catalogueNotice && <p className="planner-msg" role="status" data-testid="status-catalogue-notice">{catalogueNotice}</p>}
-        {busy && <div className="planner-msg loading" data-testid="status-planner-loading">{status === 'locating' ? 'Waiting for your location permission…' : 'Checking walking distances. The public service is rate limited, so this can take a few seconds.'}</div>}
+        {busy && <div className="planner-msg loading" data-testid="status-planner-loading">{status === 'locating' ? 'Waiting for your location permission…' : 'Comparing matching sights and finding the shortest stop order. The public walking service is rate limited, so this can take a few seconds.'}</div>}
         {status === 'error' && (
           <div className="planner-msg" role="alert" data-testid="status-planner-error">
             {error}
@@ -232,7 +232,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
                 <ul>{plan.nearby.filter((n) => !n.included).map((n) => <li key={n.id}>{n.name}, {fmtKm(n.walkingDistanceMeters)} from start on foot</li>)}</ul>
               </div>
             )}
-            <p className="planner-note" data-testid="text-plan-disclaimer">The order is chosen to minimize avoidable backtracking; it does not guarantee every street is used only once. Check opening hours and access locally.</p>
+            <p className="planner-note" data-testid="text-plan-disclaimer">This is the shortest stop order using the walking service’s current distances, for as many stops as fit your settings. There is no forced return to the start. Dead ends and access routes can still require retracing; the walking service’s paths are not guaranteed to be the shortest possible streets. Check opening hours and access locally.</p>
           </div>
           <div>
             {mapStatus === 'loading' && <p className="planner-note" role="status" data-testid="status-plan-map-loading">Loading the interactive map…</p>}

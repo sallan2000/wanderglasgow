@@ -7,7 +7,7 @@ import ts from 'typescript';
 
 const temporary = await mkdtemp(join(tmpdir(), 'glasgow-planner-'));
 try {
-  for (const name of ['tours', 'attractions', 'walk-planner']) {
+  for (const name of ['tours', 'attractions', 'efficient-walk-order', 'walk-planner']) {
     const source = await readFile(resolve('src', `${name}.ts`), 'utf8');
     const output = ts.transpileModule(source, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
@@ -17,6 +17,8 @@ try {
   const { findEfficientOrder, planAttractionWalk, defaultWalkLimitKm } =
     await import(pathToFileURL(join(temporary, 'walk-planner.mjs')).href);
   const { attractions } = await import(pathToFileURL(join(temporary, 'attractions.mjs')).href);
+  const { findEfficientOrderAsync, WalkOptimisationLimitError } =
+    await import(pathToFileURL(join(temporary, 'efficient-walk-order.mjs')).href);
   assert.equal(new Set(attractions.map(item => item.id)).size, attractions.length);
   assert.equal(attractions.filter(item => item.name === 'Celtic Park').length, 1);
 
@@ -53,9 +55,48 @@ try {
   }
   assert.deepEqual(findEfficientOrder([[0, 20], [999, 0]], 1, 100).order, [1], 'No forced return leg');
   assert.equal(findEfficientOrder([[0, null], [20, 0]], 1, 100).order.length, 0);
+  for (let run = 0; run < 24; run++) {
+    const matrix = Array.from({ length: 15 }, (_, from) =>
+      Array.from({ length: 15 }, (_, to) => from === to ? 0 : random() < .2 ? null : Math.floor(random() * 400) / 10));
+    const limit = 1 + run % 4, budget = 10 + run * 3;
+    const expected = bruteForce(matrix, limit, budget);
+    const actual = findEfficientOrder(matrix, limit, budget);
+    assert.equal(actual.order.length, expected.count, `All 14 candidates compared, case ${run}`);
+    assert(Math.abs(actual.distanceMeters - expected.distance) < 1e-8, `Shortest supplied distance, case ${run}`);
+  }
+  const trap = [[0, 1, 10, 10], [1, 0, 100, 100], [1, 1, 0, 1], [1, 1, 1, 0]];
+  assert.equal(findEfficientOrder(trap, 3, 500).distanceMeters, 12, 'A nearest-neighbour greedy tour is not returned as optimal');
+  assert.equal(findEfficientOrder(trap, 3, 12).order.length, 3, 'Exact distance-budget boundary is inclusive');
+  assert.equal(findEfficientOrder(trap, 3, 11).order.length, 2, 'Stop target only drops when infeasibility is proved');
+  assert.equal(findEfficientOrder([[0,0,0],[0,0,0],[0,0,0]], 2, 1).distanceMeters, 0, 'Co-located stops are handled without duplication');
+  const fifty = Array.from({ length: 51 }, (_, from) => Array.from({ length: 51 }, (_, to) => from === to ? 0 : 100));
+  assert.equal(findEfficientOrder(fifty, 6, 1000).distanceMeters, 600, 'All 50 candidates can be proved without exponential DP allocation');
+  assert.throws(() => findEfficientOrder(trap, 3, 500, { maxExpansions: 1 }), WalkOptimisationLimitError, 'No approximate path returned after a search cap');
+  assert.throws(() => findEfficientOrder(trap, 3, 500, { maxExpansions: 1, maxMilliseconds: 0 }), WalkOptimisationLimitError);
+  const alreadyCancelled = new AbortController(); alreadyCancelled.abort();
+  await assert.rejects(findEfficientOrderAsync(trap, 3, 500, alreadyCancelled.signal), e => e.name === 'AbortError');
+  assert.equal((await findEfficientOrderAsync(trap, 3, 500)).distanceMeters, 12, 'Async and synchronous exact searches agree');
+  // Cheap two-stop islands create deliberately loose lower bounds, guaranteeing
+  // enough expansion to observe an actual mid-search yield rather than racing
+  // a search that already finished synchronously.
+  const difficult = Array.from({ length: 25 }, (_, from) =>
+    Array.from({ length: 25 }, (_, to) => from === to ? 0 : from === 0 ? 10 :
+      to > 0 && Math.floor((from - 1) / 2) === Math.floor((to - 1) / 2) ? 1 : 100));
+  assert.throws(() => findEfficientOrder(difficult, 6, 10000, { maxExpansions: 255 }), WalkOptimisationLimitError);
+  assert.throws(() => findEfficientOrder(difficult, 6, 10000, { maxMilliseconds: 0 }), WalkOptimisationLimitError,
+    'Computation timeout never returns a merely greedy result');
+  const cancelSearch = new AbortController();
+  let timerFired = false;
+  const timeout = setTimeout(() => { timerFired = true; cancelSearch.abort(); }, 0);
+  try {
+    await assert.rejects(findEfficientOrderAsync(difficult, 6, 10000, cancelSearch.signal), e => e.name === 'AbortError',
+      'A larger exact search yields so a visitor can cancel');
+    assert(timerFired, 'Page-control tasks can run during optimisation');
+  } finally { clearTimeout(timeout); }
 
   const originalFetch = globalThis.fetch;
-  let requests = 0, failService = false, lastTableCoordinates = [], farService = false, fourKmService = false, routeDistance = 1200;
+  let requests = 0, failService = false, lastTableCoordinates = [], farService = false, fourKmService = false, routeDistance = null;
+  let lastDistances, measuredRouteDistance, customMatrix = null;
   globalThis.fetch = async url => {
     requests++;
     if (failService) return new Response('Unavailable', { status: 503 });
@@ -63,13 +104,17 @@ try {
       .map(point => point.split(',').map(Number));
     if (String(url).includes('/table/')) {
       lastTableCoordinates = coordinates;
-      const distances = coordinates.map((_, from) => coordinates.map((__, to) =>
+      const distances = customMatrix ?? coordinates.map((_, from) => coordinates.map((__, to) =>
         from === to ? 0 : farService ? from === 0 ? to === coordinates.length - 1 ? 10500 : 6200 + to * 500 : 500 :
           from === 0 ? to === 1 ? null : to === coordinates.length - 1 ? fourKmService ? 3200 : 5000 : 200 + to * 40 : 80));
+      lastDistances = distances;
       return Response.json({ code: 'Ok', distances });
     }
+    assert.equal(new URL(url).searchParams.get('continue_straight'), 'false', 'Stop entrances must not force unnecessary continuation detours');
+    const indices = coordinates.map(point => lastTableCoordinates.findIndex(other => point[0] === other[0] && point[1] === other[1]));
+    measuredRouteDistance = indices.slice(1).reduce((sum, index, i) => sum + lastDistances[indices[i]][index], 0);
     return Response.json({ code: 'Ok', routes: [{
-      distance: routeDistance, duration: 1000, geometry: { type: 'LineString', coordinates },
+      distance: routeDistance ?? measuredRouteDistance, duration: 1000, geometry: { type: 'LineString', coordinates },
     }] });
   };
   try {
@@ -79,7 +124,7 @@ try {
     assert(mixed.nearby.every(item => item.walkingDistanceMeters <= 2000), 'Walking radius, not straight-line radius');
     assert.equal(mixed.nearby.filter(item => item.included).length, mixed.stops.length);
     assert.equal(mixed.excludedCount, mixed.nearby.length - mixed.stops.length);
-    assert.equal(mixed.distanceMeters, 1200, 'Use returned route metrics');
+    assert.equal(mixed.distanceMeters, measuredRouteDistance, 'Use measured route metrics that match the optimised order');
     assert.equal(defaultWalkLimitKm(5), 5, 'Existing search options retain a 5 km walking limit');
     assert.equal(defaultWalkLimitKm(4), 5, 'The new 4 km search retains the existing 5 km walking limit');
     assert.equal(defaultWalkLimitKm(10), 15, 'Extended search permits a 15 km walk');
@@ -97,7 +142,7 @@ try {
     assert(fourKmWalk.nearby.length > 0 && fourKmWalk.nearby.every(item => item.walkingDistanceMeters <= 4000),
       'The 4 km option includes reachable attractions within four kilometres on foot');
     assert.equal(lastTableCoordinates.length, 3, 'A sight beyond the 4 km radius is excluded before routing');
-    assert.equal(fourKmWalk.distanceMeters, 1200, 'The 4 km option retains the existing 5 km total-walk limit');
+    assert.equal(fourKmWalk.distanceMeters, measuredRouteDistance, 'The 4 km option retains the existing 5 km total-walk limit');
     const farCatalogue = [0.058, 0.060, 0.062, 0.064, 0.11].map((offset, i) => ({
       id: `far-${i}`, name: `Farther attraction ${i}`, description: 'Extended radius check.',
       place: 'Glasgow', theme: i % 2 ? 'Music' : 'Art', lat: origin.lat + offset, lon: origin.lon,
@@ -119,7 +164,33 @@ try {
     routeDistance = 16000;
     await assert.rejects(planAttractionWalk(origin, { theme: ['Art', 'Music'], radiusKm: 10, maxStops: 3 }, undefined, farCatalogue),
       error => error.kind === 'service', 'The final extended route may not exceed 15 km');
-    farService = false; routeDistance = 1200;
+    farService = false; routeDistance = null;
+    const largerCatalogue = Array.from({ length: 15 }, (_, i) => ({
+      id: `larger-${i + 1}`, name: `Sight ${i + 1}`, description: 'Full-candidate comparison.',
+      place: 'Glasgow', theme: 'Art', lat: origin.lat + (i + 1) * .0001, lon: origin.lon,
+    }));
+    customMatrix = Array.from({ length: 16 }, (_, from) => Array.from({ length: 16 }, (_, to) =>
+      from === to ? 0 : from === 0 ? to >= 13 ? 800 : 100 : from >= 13 && to >= 13 ? 20 :
+        (from >= 13) !== (to >= 13) ? 900 : 600));
+    const beyondTwelve = await planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, largerCatalogue);
+    assert.equal(lastTableCoordinates.length, 16, 'No nearest-12 shortlist');
+    assert.deepEqual(new Set(beyondTwelve.stops.map(s => s.id)), new Set(['larger-13', 'larger-14', 'larger-15']),
+      'Slightly farther clustered sights produce a shorter walk than the twelve nearest sights');
+    assert.equal(beyondTwelve.distanceMeters, 840, 'Shortest larger-candidate route is measured and kept');
+    const themedBeyondTwelve = await planAttractionWalk(origin, { theme: ['Art'], radiusKm: 2, maxStops: 3 }, undefined, largerCatalogue);
+    assert.equal(themedBeyondTwelve.distanceMeters, 840, 'Category and nearby modes share full optimisation');
+    routeDistance = 940;
+    await assert.rejects(planAttractionWalk(origin, { theme: 'Art', radiusKm: 2, maxStops: 3 }, undefined, largerCatalogue),
+      e => e.kind === 'service' && e.message.includes('does not match'), 'A route with an unexplained extra detour is not called optimal');
+    routeDistance = 838.5;
+    assert.equal((await planAttractionWalk(origin, { theme: 'Art', radiusKm: 2, maxStops: 3 }, undefined, largerCatalogue)).distanceMeters,
+      838.5, 'Small provider rounding differences retain its measured totals');
+    routeDistance = null; customMatrix = null;
+    const tooMany = Array.from({ length: 51 }, (_, i) => ({ ...largerCatalogue[0], id: `dense-${i}`, lat: origin.lat + (i + 1) * .00001 }));
+    const beforeDense = requests;
+    await assert.rejects(planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 3 }, undefined, tooMany),
+      e => e.kind === 'location' && e.message.includes('every candidate'), 'Excessive searches fail with guidance, never silently discard sights');
+    assert.equal(requests, beforeDense, 'An oversized search does not burden the public routing service');
     const themed = await planAttractionWalk(origin, { theme: 'History', radiusKm: 2, maxStops: 3 });
     assert(themed.stops.length > 0 && themed.stops.every(item => item.theme === 'History'));
     const unionCatalogue = ['History', 'Art', 'Music', 'Sport', 'Art', 'Music', 'Art', 'Music'].map((theme, i) => ({
@@ -182,7 +253,7 @@ try {
   } finally {
     globalThis.fetch = originalFetch;
   }
-  console.log(`Planner checks passed: 60 exhaustive comparisons, deduplication, budgets, disconnected paths, single/multiple/custom category filtering, deselection, empty selections, standard/extended walking radius, cancellation and service errors.`);
+  console.log(`Planner checks passed: 84 exhaustive comparisons, all-candidate optimisation beyond 12 sights, greedy traps, 50-candidate proof, directed/disconnected/zero-distance links, budgets, cooperative cancellation, search limits, final-route consistency, category/radius filtering and service errors. No live routing requests.`);
   if (process.argv.includes('--live')) {
     const walk = await planAttractionWalk({ lat: 55.8605, lon: -4.2494 },
       { theme: 'All', radiusKm: 2, maxStops: 6 });

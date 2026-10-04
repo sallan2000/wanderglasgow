@@ -1,5 +1,7 @@
 import { attractions, distanceKm, type Attraction, type Position } from './attractions';
 import type { Theme } from './tours';
+import { findEfficientOrderAsync, MAX_WALK_CANDIDATES, WalkOptimisationLimitError } from './efficient-walk-order';
+export { findEfficientOrder } from './efficient-walk-order';
 
 // The "5 km+" choice is a bounded search, not an unlimited walking request.
 export const SEARCH_RADII_KM = [1, 2, 3, 4, 5, 10] as const;
@@ -28,62 +30,6 @@ export class WalkPlanningError extends Error {
     super(message);
     this.name = 'WalkPlanningError';
   }
-}
-
-/** Exact shortest open path for the most stops within a walking-distance budget.
- * Matrix index zero is the fixed origin. No forced return to the start.
- * Bound the candidate pool to keep the calculation small on phones.
- */
-export function findEfficientOrder(matrix: (number | null)[][], maxStops: number, budgetMeters: number) {
-  const count = matrix.length - 1;
-  if (count < 1) return { order: [] as number[], distanceMeters: 0 };
-  if (count > 12 || matrix.some(row => row.length !== count + 1)) throw new Error('Invalid distance matrix.');
-  if (!Number.isFinite(budgetMeters) || budgetMeters <= 0) throw new Error('Invalid walking budget.');
-  const limit = Math.min(count, Math.max(1, Math.floor(maxStops)));
-  const states = 1 << count;
-  const cost = new Float64Array(states * count).fill(Infinity);
-  const previous = new Int16Array(states * count).fill(-1);
-  const size = new Uint8Array(states);
-  for (let mask = 1; mask < states; mask++) size[mask] = size[mask >> 1] + (mask & 1);
-  const valid = (value: number | null): value is number =>
-    typeof value === 'number' && Number.isFinite(value) && value >= 0;
-  for (let last = 0; last < count; last++) {
-    const distance = matrix[0][last + 1];
-    if (valid(distance) && distance <= budgetMeters) cost[(1 << last) * count + last] = distance;
-  }
-  let bestMask = 0, bestLast = -1, bestCount = 0, bestDistance = Infinity;
-  for (let mask = 1; mask < states; mask++) {
-    if (size[mask] > limit) continue;
-    for (let last = 0; last < count; last++) {
-      const current = cost[mask * count + last];
-      if (!Number.isFinite(current)) continue;
-      if (size[mask] > bestCount || (size[mask] === bestCount && current < bestDistance)) {
-        bestMask = mask; bestLast = last; bestCount = size[mask]; bestDistance = current;
-      }
-      if (size[mask] === limit) continue;
-      for (let next = 0; next < count; next++) {
-        if (mask & (1 << next)) continue;
-        const leg = matrix[last + 1][next + 1];
-        if (!valid(leg)) continue;
-        const nextMask = mask | (1 << next);
-        const nextCost = current + leg;
-        const index = nextMask * count + next;
-        if (nextCost <= budgetMeters && nextCost < cost[index]) {
-          cost[index] = nextCost;
-          previous[index] = last;
-        }
-      }
-    }
-  }
-  const order: number[] = [];
-  let mask = bestMask, last = bestLast;
-  while (last >= 0) {
-    order.push(last + 1);
-    const prior = previous[mask * count + last];
-    mask ^= 1 << last;
-    last = prior;
-  }
-  return { order: order.reverse(), distanceMeters: order.length ? bestDistance : 0 };
 }
 
 let requestQueue: Promise<void> = Promise.resolve();
@@ -144,14 +90,17 @@ export async function planAttractionWalk(
     .map(item => ({ item, distance: distanceKm(origin, item) }))
     .filter(entry => entry.distance <= options.radiusKm)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 12).map(entry => entry.item);
+    .map(entry => entry.item);
   if (!candidates.length) throw new WalkPlanningError(
     'No attractions match your selected categories near your starting point. Try different categories, a wider radius, or another Glasgow start.', 'empty');
+  if (candidates.length > MAX_WALK_CANDIDATES) throw new WalkPlanningError(
+    `More than ${MAX_WALK_CANDIDATES} matching sights are nearby. Choose a smaller radius or more specific categories so every candidate can be compared; no approximate walk has been substituted.`, 'location');
   const coordinates = [origin, ...candidates].map(point => `${point.lon},${point.lat}`).join(';');
   const table = await routingJson(
     `https://routing.openstreetmap.de/routed-foot/table/v1/foot/${coordinates}?annotations=distance,duration`, signal);
   if (!Array.isArray(table.distances) || table.distances.length !== candidates.length + 1 ||
-      table.distances.some((row: unknown) => !Array.isArray(row) || row.length !== candidates.length + 1)) {
+      table.distances.some((row: unknown) => !Array.isArray(row) || row.length !== candidates.length + 1 ||
+        row.some(v => v !== null && (typeof v !== 'number' || !Number.isFinite(v) || v < 0)))) {
     throw new WalkPlanningError('The walking service returned incomplete distances. Please try again.', 'service');
   }
   // "Nearby" means reachable by foot within the radius, not just close across a river.
@@ -163,20 +112,30 @@ export async function planAttractionWalk(
     'No matching attractions are within that walking distance. Try a wider radius or all categories.', 'empty');
   const indices = [0, ...reachable.map(entry => entry.index)];
   const matrix = indices.map(a => indices.map(b => table.distances[a][b] as number | null));
-  const chosen = findEfficientOrder(matrix, options.maxStops, maxWalkKm * 1000);
+  let chosen;
+  try {
+    chosen = await findEfficientOrderAsync(matrix, options.maxStops, maxWalkKm * 1000, signal);
+  } catch (error) {
+    if (error instanceof WalkOptimisationLimitError) throw new WalkPlanningError(error.message, 'location');
+    throw error;
+  }
   if (!chosen.order.length) throw new WalkPlanningError(
     'No matching attractions fit the walking-distance limit. Try a closer starting point or increase the limit.', 'empty');
   const stops = chosen.order.map(index => reachable[index - 1].item);
   const routeCoordinates = [origin, ...stops].map(point => `${point.lon},${point.lat}`).join(';');
   const result = await routingJson(
-    `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${routeCoordinates}?overview=full&geometries=geojson`, signal);
+    `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${routeCoordinates}?overview=full&geometries=geojson&continue_straight=false`, signal);
   const route = result.routes?.[0];
   if (route?.geometry?.type !== 'LineString' || !Array.isArray(route.geometry.coordinates) ||
-      !Number.isFinite(route.distance) || !Number.isFinite(route.duration)) {
+      !Number.isFinite(route.distance) || route.distance < 0 || !Number.isFinite(route.duration) || route.duration < 0) {
     throw new WalkPlanningError('The walking service returned an incomplete route. Please try again.', 'service');
   }
-  if (route.distance > maxWalkKm * 1000 + 50) throw new WalkPlanningError(
+  if (route.distance > maxWalkKm * 1000 + 2) throw new WalkPlanningError(
     'The final walking route exceeded the distance limit. Try fewer stops or a closer start.', 'service');
+  // The route must match the distances used for its optimisation, allowing only
+  // small rounding differences. Never present an extra detour as the optimum.
+  if (Math.abs(route.distance - chosen.distanceMeters) > 2) throw new WalkPlanningError(
+    'The walking service returned a route that does not match the optimised distances. Please try again; no less-efficient route has been substituted.', 'service');
   const selected = new Set(stops.map(stop => stop.id));
   return {
     origin, theme: Array.isArray(options.theme) ? [...options.theme] : options.theme, stops,

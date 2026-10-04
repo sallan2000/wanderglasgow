@@ -30,7 +30,9 @@ window.turnstile = {
 };`;
 
 export async function isolateEmail(page) {
-  const state = { sends: [], securityLoads: 0, unexpected: [], errors: [], send: null, securityFails: false };
+  const state = { sends: [], securityLoads: 0, unexpected: [], errors: [], send: null, securityFails: false,
+    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [] };
+  let tablePoints, distances;
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
@@ -49,7 +51,8 @@ export async function isolateEmail(page) {
         return route.fulfill({ status: 200, headers: cors, body: '{"status":"accepted"}' });
       }
       const table = u.pathname.replace('/rest/v1/', '');
-      if (table in tables) return route.fulfill({ status: 200, headers: cors, body: JSON.stringify(tables[table]) });
+      if (table in tables) return route.fulfill({ status: 200, headers: cors,
+        body: JSON.stringify(table === 'glasgow_attractions' && state.catalogue ? state.catalogue : tables[table]) });
       state.unexpected.push(u.pathname); return route.abort();
     }
     if (u.hostname === 'challenges.cloudflare.com') {
@@ -58,11 +61,20 @@ export async function isolateEmail(page) {
       return route.fulfill({ status: 200, contentType: 'text/javascript', body: turnstile });
     }
     if (u.hostname === 'routing.openstreetmap.de') {
-      if (u.pathname.includes('/table/')) return route.fulfill({ json: { code: 'Ok',
-        distances: [[0, 400, 600], [400, 0, 300], [600, 300, 0]], durations: [[0, 300, 500], [300, 0, 250], [500, 250, 0]] } });
-      if (u.pathname.includes('/route/')) return route.fulfill({ json: { code: 'Ok', routes: [{
-        distance: 700, duration: 550, geometry: { type: 'LineString', coordinates: [[-4.249,55.8625],[-4.2518,55.8642],[-4.256,55.8651]] },
-      }] } });
+      const points = u.pathname.split('/').at(-1).split(';').map(point => point.split(',').map(Number));
+      state.routingRequests.push({ points, continueStraight: u.searchParams.get('continue_straight') });
+      if (u.pathname.includes('/table/')) {
+        tablePoints = points;
+        distances = state.walkingMatrix ?? [[0, 400, 600], [400, 0, 300], [600, 300, 0]];
+        return route.fulfill({ json: { code: 'Ok', distances } });
+      }
+      if (u.pathname.includes('/route/')) {
+        const indices = points.map(point => tablePoints.findIndex(p => p[0] === point[0] && p[1] === point[1]));
+        const distance = indices.slice(1).reduce((sum, index, i) => sum + distances[indices[i]][index], 0);
+        return route.fulfill({ json: { code: 'Ok', routes: [{
+          distance: state.routeDistanceOverride ?? distance, duration: 550, geometry: { type: 'LineString', coordinates: points },
+        }] } });
+      }
     }
     // Deliberately fail background maps; email must still function without them.
     if (u.hostname === 'unpkg.com' || u.hostname.endsWith('.tile.openstreetmap.org')) return route.abort();
