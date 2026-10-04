@@ -14,6 +14,7 @@ export const state = {
   saveInputs: [] as WalkInput[],
   savedWalk: null as ManagedWalk | null,
   allowSave: false,
+  failNextSave: false,
 };
 
 export function configureSaveFixture(allowSave: boolean) {
@@ -28,6 +29,10 @@ export function measureCuratedWalk(stops: unknown[], signal?: AbortSignal) {
 export async function saveWalk(input: WalkInput, existing?: ManagedWalk): Promise<ManagedWalk> {
   state.saves++;
   state.saveInputs.push(structuredClone(input));
+  if (state.failNextSave) {
+    state.failNextSave = false;
+    throw new Error('The fixture rejected this save once');
+  }
   if (!state.allowSave) throw new Error('Saving is forbidden in the component regression suite');
   const saved: ManagedWalk = {
     ...structuredClone(input),

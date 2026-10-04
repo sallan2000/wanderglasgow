@@ -32,6 +32,7 @@ Object.assign(window, {
       state.requests[index].resolve({ distanceKm, minutes, geometry });
     },
     fail(index: number) { state.requests[index].reject(new CatalogueError('Fixture walking route unavailable')); },
+    failNextSave() { state.failNextSave = true; },
   },
 });
 

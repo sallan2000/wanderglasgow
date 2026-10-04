@@ -263,6 +263,51 @@ for (const failure of [
   });
 }
 
+test('walk editor keeps walk and story edits after a failed draft save and saves them on retry', async ({ page }) => {
+  const verify = await isolateMaps(page);
+  await page.goto('/tests/walk-browser/index.html?allowSave=true&stops=3');
+  await expect(page.getByTestId('walk-form')).toBeVisible();
+
+  await page.getByTestId('walk-input-title').fill('Revised Glasgow walk');
+  await page.getByTestId('walk-input-subtitle').fill('A revised description for this walk.');
+  await page.getByTestId('walk-input-story-0').fill('A newly written story for Glasgow Cathedral.');
+  await page.getByTestId('walk-input-story-1').fill('A newly written story for George Square.');
+  await page.getByTestId('walk-button-down-0').click();
+  await expect(page.getByTestId('walk-stop-0')).toContainText('George Square');
+  await expect(page.getByTestId('walk-stop-1')).toContainText('Cathedral');
+  await page.evaluate(() => window.walkFixture.failNextSave());
+
+  await page.getByTestId('walk-button-save-draft').click();
+  await expect(page.getByTestId('walk-status-save-error'))
+    .toContainText('Your changes are still here; try again.');
+  await expect(page.getByTestId('walk-overlay-editor')).toBeVisible();
+  await expect(page.getByTestId('walk-input-title')).toHaveValue('Revised Glasgow walk');
+  await expect(page.getByTestId('walk-input-subtitle')).toHaveValue('A revised description for this walk.');
+  await expect(page.getByTestId('walk-stop-0')).toContainText('George Square');
+  await expect(page.getByTestId('walk-stop-1')).toContainText('Cathedral');
+  await expect(page.getByTestId('walk-input-story-0'))
+    .toHaveValue('A newly written story for George Square.');
+  await expect(page.getByTestId('walk-input-story-1'))
+    .toHaveValue('A newly written story for Glasgow Cathedral.');
+
+  await page.getByTestId('walk-button-save-draft').click();
+  await expect(page.getByTestId('walk-overlay-editor')).toHaveCount(0);
+  const { saves, saveInputs, savedWalk } = await page.evaluate(() => window.walkFixture.state);
+  expect(saves).toBe(2);
+  expect(saveInputs[1]).toMatchObject({
+    title: 'Revised Glasgow walk',
+    subtitle: 'A revised description for this walk.',
+    published: false,
+    stops: [
+      { name: 'George Square', story: 'A newly written story for George Square.' },
+      { name: 'Cathedral', story: 'A newly written story for Glasgow Cathedral.' },
+      { name: 'Kelvingrove', story: 'An original museum story.' },
+    ],
+  });
+  expect(savedWalk).toMatchObject(saveInputs[1]);
+  await verify();
+});
+
 test('walk preview ignores a late Leaflet load after closing and works when reopened', async ({ page }) => {
   const options = { holdFirst: true };
   const verify = await isolateMaps(page, options);
