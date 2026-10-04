@@ -12,6 +12,8 @@ import AccessDetailsView from './AccessDetailsView';
 import type { AccessPreference } from './access-details';
 import EmailWalk from './EmailWalk';
 import { plannedEmailWalk } from './walk-email';
+import ItineraryActions from './ItineraryActions';
+import { plannedItinerary } from './itinerary-snapshot';
 
 type Mode = 'theme' | 'nearby';
 type Start = string;
@@ -230,6 +232,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>
             </div>
             <EmailWalk walk={plannedEmailWalk(plan)} title="Your calculated Glasgow walk" />
+            <ItineraryActions itinerary={plannedItinerary(plan)} />
             {plan.stops.map((s, i) => (
               <article className="plan-stop" key={s.id} data-testid={`stop-plan-${s.id}`}>
                 <div className="stop-num">{String(i + 1).padStart(2, '0')}</div>

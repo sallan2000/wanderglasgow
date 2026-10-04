@@ -192,6 +192,16 @@ Emails contain readable stop itineraries and OpenStreetMap point links, not stor
 
 The app does not store addresses or routes or log request contents. The private database keeps keyed, non-plaintext abuse counters (three attempts per recipient and 100 globally per hour); counters older than two hours are removed on the next send attempt. Resend necessarily receives the address and email body and may retain them under its own policy. Cloudflare processes security checks. See the setup guide for retention, duplicate-retry limits, and provider troubleshooting.
 
+## Print and offline itinerary copies
+
+Both curated details and calculated-walk results offer **Print itinerary** and **Download HTML**. The same self-contained document is used for both. It includes the displayed title, starting point, numbered stops and stories, walking totals, access details when included in that snapshot, and route/access caveats. Print uses a separate document without the site's interactive controls; choose **Save as PDF** in the browser's print dialog where supported. No email configuration or account is required.
+
+Open a downloaded HTML file from Downloads/Files to read it offline. It uses system fonts, inline styles and, for calculated walks with existing geometry, an inline vector route-shape illustration with OpenStreetMap attribution. It loads no scripts, fonts, map tiles or other remote resources. Curated copies use the listed editorial start and estimates, not a GPS connector or an invented walking route; missing access information is explicitly Unknown.
+
+Exports use the current displayed snapshot and never fetch, recalculate or upload an itinerary. A calculated copy includes its chosen start coordinates and route, which can disclose a GPS starting location if the visitor shares the file; this is explained before either action. Copies are fixed, may become outdated, and do not provide live navigation, fresh routing, or an accessibility guarantee. They do not make the whole website available offline.
+
+Static hosts must apply the supplied `public/_headers` policy, including `frame-src 'self'` for the local print document. If printing is blocked or unsupported, download the HTML file and use the browser's Print menu after opening it.
+
 ## Automated checks
 
 From the repository root, run `pnpm --filter @workspace/glasgow-walks run <script>`. From the artifact directory, use `pnpm run <script>`.
@@ -205,6 +215,8 @@ From the repository root, run `pnpm --filter @workspace/glasgow-walks run <scrip
 | `test:planner` | Exact optimisation versus exhaustive examples, candidate selection, categories, budgets, cancellation, distance consistency and errors. |
 | `test:access` | Access validation, legacy Unknown defaults, storage contracts, filtering and real isolated PostgreSQL upgrade/fresh-setup permissions. |
 | `test:access:browser` | Actual editor saving/reopening/reloading, schema-upgrade guidance, visitor access display/filter and keyboard/mobile controls with intercepted services. |
+| `test:itinerary` | Snapshot copying, escaping, validation, curated/calculated distinctions, access unknowns, self-contained documents and long stories without network calls. |
+| `test:itinerary:browser` | Both visitor exports, standalone reopening offline, security policy and print lifecycle, multi-page PDF output, malicious prose, keyboard/mobile controls and no export requests/storage. |
 | `test:admin` | Real isolated PostgreSQL permissions, drafts, validation, conflicts, safe upgrades/seeds, revocation and the read-only audit script. |
 | `test:walks` | Curated-walk validation and storage/measurement request contracts. |
 | `test:starting-areas` | Starting-area validation and storage request contracts. |
@@ -223,7 +235,7 @@ The normal suites use local fixtures and/or isolated PGlite databases: they do n
 
 The app loads Leaflet from unpkg, map tiles from OpenStreetMap, and walking routes from the independent FOSSGIS/OpenStreetMap foot-routing service. Fonts come from Google Fonts. These require an internet connection and are not Replit services.
 
-Location is requested only after a user action. Visitors can choose a theme or a mixed nearby-attraction walk. A GPS-started plan sends the current location and candidate attraction coordinates to the routing provider to calculate actual pedestrian-network distances. A manually chosen Glasgow starting point does not share GPS coordinates. Locations are not persisted.
+Location is requested only after a user action. Visitors can choose a theme or a mixed nearby-attraction walk. A GPS-started plan sends the current location and candidate attraction coordinates to the routing provider to calculate actual pedestrian-network distances. A manually chosen Glasgow starting point does not share GPS coordinates. The site does not persist locations; a visitor's explicitly downloaded calculated itinerary contains its chosen starting point and route in that local file, as explained above.
 
 ### Routing behaviour and limitations
 
@@ -244,6 +256,7 @@ Paths below are relative to the repository root.
 | Path | Responsibility |
 | --- | --- |
 | `artifacts/glasgow-walks/src/App.tsx`, `artifacts/glasgow-walks/src/WalkPlanner.tsx` | Visitor screens, curated details and generated-walk controls. |
+| `artifacts/glasgow-walks/src/ItineraryActions.tsx`, `artifacts/glasgow-walks/src/itinerary-snapshot.ts`, `artifacts/glasgow-walks/src/itinerary-document.ts`, `artifacts/glasgow-walks/src/itinerary-style.ts` | Local print/download actions and self-contained, escaped offline itinerary documents. |
 | `artifacts/glasgow-walks/src/walk-planner.ts`, `artifacts/glasgow-walks/src/efficient-walk-order.ts` | Foot-routing integration and bounded exact stop-order search. |
 | `artifacts/glasgow-walks/src/AdminPortal.tsx`, `artifacts/glasgow-walks/src/AdminAuth.tsx` | Admin session/access gate and password recovery. |
 | `artifacts/glasgow-walks/src/AdminManager.tsx`, `artifacts/glasgow-walks/src/AdminEditor.tsx`, `artifacts/glasgow-walks/src/AdminCategories.tsx` | Attraction and category management. |

@@ -1,0 +1,7 @@
+.itinerary-actions { margin: 14px 0; padding: 14px; border: 1px solid rgba(24, 58, 54, .35); border-radius: 12px; background: rgba(245, 242, 233, .6); }
+.itinerary-actions h4 { margin: 0 0 6px; font-size: 15px; }
+.itinerary-actions p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+.itinerary-actions .itinerary-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.itinerary-actions button:focus-visible { outline: 3px solid #d86543; outline-offset: 2px; }
+.itinerary-actions .itinerary-status { margin-top: 10px; font-weight: 600; }
+.itinerary-actions .itinerary-error { margin-top: 10px; padding: 10px; border-radius: 8px; border: 1px solid #a3361a; color: #7a2410; background: #fbeee9; font-size: 13px; }
