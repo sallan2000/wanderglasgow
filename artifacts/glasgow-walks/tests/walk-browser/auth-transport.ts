@@ -77,6 +77,9 @@ export const supabase = {
     },
     async signInWithPassword({ email }: { email: string; password: string }) {
       authFixture.signInRequests.push({ email });
+      if (params().get('signin') === 'throw-once' && authFixture.signInRequests.length === 1) {
+        throw new Error('Network request failed');
+      }
       if (params().get('signin') === 'reject') {
         return { error: { message: 'Invalid login credentials' } };
       }

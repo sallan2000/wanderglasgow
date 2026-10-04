@@ -74,20 +74,25 @@ export function SignIn({ notice }: { notice?: string }) {
     if (!supabase) return;
     if (!email.trim()) return setErr('Enter your email address.');
     setBusy(true); setErr(''); setOk('');
-    if (mode === 'in') {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pw });
-      setPw('');
-      if (error) setErr('Those details were not recognised. Check your email and password and try again.');
-    } else {
-      try {
+    try {
+      if (mode === 'in') {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pw });
+        if (error) setErr('Those details were not recognised. Check your email and password and try again.');
+      } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + base + 'admin' });
         if (error) setErr('The reset email could not be sent just now. Please try again shortly.');
         else setOk('If that address belongs to an administrator, a reset link is on its way. Open it on this device.');
-      } catch {
+      }
+    } catch {
+      if (mode === 'in') {
+        setErr('Sign-in could not be completed just now. Check your connection and try again.');
+      } else {
         setErr('The reset email could not be sent just now. Please try again shortly.');
       }
+    } finally {
+      if (mode === 'in') setPw('');
+      setBusy(false);
     }
-    setBusy(false);
   };
   return (
     <AuthFrame>

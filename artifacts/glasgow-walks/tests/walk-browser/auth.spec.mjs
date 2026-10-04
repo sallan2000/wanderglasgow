@@ -53,6 +53,45 @@ test('admin auth validates a missing email and clears a rejected sign-in passwor
   expect(supabaseRequests).toEqual([]);
 });
 
+test('admin auth restores sign-in retry after a thrown network request', async ({ page }) => {
+  const supabaseRequests = [];
+  page.on('request', (request) => {
+    if (/supabase/i.test(request.url())) supabaseRequests.push(request.url());
+  });
+
+  await page.goto('/tests/walk-browser/auth.html?signin=throw-once');
+  await expectCleanAuthScreen(page, 'Sign in');
+
+  const email = page.getByTestId('input-email');
+  const password = page.getByTestId('input-password');
+  const submit = page.getByTestId('button-submit-auth');
+  await email.fill('admin@example.invalid');
+  await password.fill('fixture-password');
+  await submit.click();
+
+  await expect(page.getByTestId('status-auth-error')).toHaveText(
+    'Sign-in could not be completed just now. Check your connection and try again.',
+  );
+  await expectCleanAuthScreen(page, 'Sign in');
+  await expect(submit).toBeEnabled();
+  await expect(email).toHaveValue('admin@example.invalid');
+  await expect(password).toHaveValue('');
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([
+    { email: 'admin@example.invalid' },
+  ]);
+
+  await password.fill('retry-password');
+  await submit.click();
+  await expect(submit).toBeEnabled();
+  await expect(password).toHaveValue('');
+  await expect(page.getByTestId('status-auth-error')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([
+    { email: 'admin@example.invalid' },
+    { email: 'admin@example.invalid' },
+  ]);
+  expect(supabaseRequests).toEqual([]);
+});
+
 test('admin auth stays keyboard accessible without horizontal overflow on narrow screens', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto('/tests/walk-browser/auth.html');
