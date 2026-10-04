@@ -1,4 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 pnpm install --frozen-lockfile
-pnpm --filter db push
+# Wander Glasgow uses owner-managed Supabase. Apply its SQL upgrades manually;
+# do not run the unused template database's migrations after workspace merges.
