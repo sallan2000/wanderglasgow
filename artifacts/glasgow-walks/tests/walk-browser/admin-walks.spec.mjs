@@ -67,6 +67,30 @@ test('a late list refresh cannot overwrite a successfully saved walk', async ({ 
   await verify();
 });
 
+test('a late list refresh cannot remove a newly added walk', async ({ page }) => {
+  const verify = await isolateWalkList(page);
+  const original = walk('walk-a', 'Riverside Route');
+  await loadRows(page, [original]);
+
+  await page.getByTestId('walk-button-refresh').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.listRequests.length)).toBe(2);
+
+  await page.getByTestId('walk-button-add').click();
+  await page.getByTestId('walk-input-title').fill('New Riverside Walk');
+  await page.getByTestId('walk-radio-category-history').click();
+  await page.getByTestId('walk-button-save-draft').click();
+  await expect.poll(() => page.evaluate(() => window.walkListFixture.state.saveRequests.length)).toBe(1);
+  await resolveSave(page, 0);
+
+  await expect(page.getByTestId('walk-row-new-walk-0')).toContainText('New Riverside Walk');
+  await expect(page.getByTestId('walk-overlay-editor')).toHaveCount(0);
+
+  await page.evaluate(rows => window.walkListFixture.resolveList(1, rows), [original]);
+  await expect(page.getByTestId('walk-row-new-walk-0')).toContainText('New Riverside Walk');
+  await expect(page.getByTestId('walk-row-walk-a')).toBeVisible();
+  await verify();
+});
+
 test('a failed list refresh keeps saved walks visible and allows retry', async ({ page }) => {
   const verify = await isolateWalkList(page);
   const original = walk('walk-a', 'Riverside Route');
