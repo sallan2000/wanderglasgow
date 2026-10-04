@@ -50,6 +50,9 @@ export const authFixture = {
     pendingAdminChecks.get(userId)?.();
     pendingAdminChecks.delete(userId);
   },
+  enableAuthClient() {
+    supabase = fixtureSupabase;
+  },
   switchAccount(userId: string, email: string, isAdmin: boolean) {
     const nextSession = makeSession(userId, email);
     currentSession = nextSession;
@@ -80,7 +83,7 @@ export async function checkAdmin() {
   return allowed;
 }
 
-export const supabase = {
+const fixtureSupabase = {
   auth: {
     async getSession() {
       return { data: { session: currentSession }, error: null };
@@ -133,3 +136,6 @@ export const supabase = {
     },
   },
 };
+
+export let supabase: typeof fixtureSupabase | null =
+  params().get('client') === 'missing' ? null : fixtureSupabase;

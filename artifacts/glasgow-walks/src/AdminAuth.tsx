@@ -71,7 +71,13 @@ export function SignIn({ notice }: { notice?: string }) {
   const [ok, setOk] = useState('');
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
+    if (!supabase) {
+      setErr(mode === 'in'
+        ? 'Administrator sign-in is temporarily unavailable. Please try again shortly.'
+        : 'Password recovery is temporarily unavailable. Please try again shortly.');
+      setOk('');
+      return;
+    }
     if (!email.trim()) return setErr('Enter your email address.');
     setBusy(true); setErr(''); setOk('');
     try {

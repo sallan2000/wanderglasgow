@@ -71,6 +71,46 @@ test('admin auth validates a missing email and clears a rejected sign-in passwor
   expect(supabaseRequests).toEqual([]);
 });
 
+test('admin auth explains when its client is unavailable and allows a later retry', async ({ page }) => {
+  const supabaseRequests = [];
+  page.on('request', (request) => {
+    if (/supabase/i.test(request.url())) supabaseRequests.push(request.url());
+  });
+
+  await page.goto('/tests/walk-browser/auth.html?client=missing');
+  await expectCleanAuthScreen(page, 'Sign in');
+  await page.getByTestId('input-email').fill('admin@example.invalid');
+  await page.getByTestId('input-password').fill('fixture-password');
+
+  const submit = page.getByTestId('button-submit-auth');
+  await submit.click();
+  await expect(page.getByTestId('status-auth-error')).toHaveText(
+    'Administrator sign-in is temporarily unavailable. Please try again shortly.',
+  );
+  await expect(submit).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([]);
+
+  const modeToggle = page.getByTestId('button-toggle-forgot');
+  await modeToggle.click();
+  await expectCleanAuthScreen(page, 'Reset your password');
+  await submit.click();
+  await expect(page.getByTestId('status-auth-error')).toHaveText(
+    'Password recovery is temporarily unavailable. Please try again shortly.',
+  );
+  await expect.poll(() => page.evaluate(() => window.authFixture.resetRequests)).toEqual([]);
+
+  await modeToggle.click();
+  await expectCleanAuthScreen(page, 'Sign in');
+  await page.evaluate(() => window.authFixture.enableAuthClient());
+  await submit.click();
+  await expect(submit).toBeEnabled();
+  await expect(page.getByTestId('status-auth-error')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([
+    { email: 'admin@example.invalid' },
+  ]);
+  expect(supabaseRequests).toEqual([]);
+});
+
 test('admin auth restores sign-in retry after a thrown network request', async ({ page }) => {
   const supabaseRequests = [];
   page.on('request', (request) => {
