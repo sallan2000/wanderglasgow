@@ -211,6 +211,51 @@ test('admin auth accepts a recovery URL and moves to the admin portal after pass
   ]);
 });
 
+test('admin auth password recovery works with the keyboard on a narrow screen', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto('/tests/walk-browser/recovery.html#access_token=fixture&type=recovery');
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+
+  const brand = page.getByTestId('link-home');
+  const newPassword = page.getByTestId('input-new-password');
+  const confirmPassword = page.getByTestId('input-confirm-password');
+  const save = page.getByTestId('button-save-password');
+  const expectVisibleFocus = async (locator) => {
+    await expect(locator).toBeFocused();
+    await expect(locator).toBeInViewport();
+    await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).outlineStyle))
+      .toBe('solid');
+  };
+  const expectNoHorizontalOverflow = async () => {
+    const dimensions = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
+  };
+
+  await expectNoHorizontalOverflow();
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(brand);
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(newPassword);
+  await page.keyboard.type('new-fixture-password');
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(confirmPassword);
+  await page.keyboard.type('new-fixture-password');
+  await page.keyboard.press('Tab');
+  await expectVisibleFocus(save);
+  await expectNoHorizontalOverflow();
+
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('status-auth-notice')).toHaveText('Password updated.');
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([
+    { password: 'new-fixture-password' },
+  ]);
+  await expectNoHorizontalOverflow();
+});
+
 test('admin auth restores password-update retry after a rejected request', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html?update=reject-once#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
