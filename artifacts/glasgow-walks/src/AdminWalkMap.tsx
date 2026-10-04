@@ -21,6 +21,10 @@ export default function AdminWalkMap({ stops, geometry }: Props) {
     let active = true;
     let resize: ResizeObserver | undefined;
     let detachTiles: (() => void) | undefined;
+    const disconnectResize = () => {
+      resize?.disconnect();
+      resize = undefined;
+    };
     setStatus('loading');
     setFailure(null);
     loadLeaflet().then(L => {
@@ -40,6 +44,7 @@ export default function AdminWalkMap({ stops, geometry }: Props) {
         // Signal the new map instance even if status ends up unchanged.
         setMapVersion(version => version + 1);
       } catch {
+        disconnectResize();
         detachTiles?.();
         m?.remove();
         if (map.current === m) map.current = null;
@@ -55,7 +60,7 @@ export default function AdminWalkMap({ stops, geometry }: Props) {
       setStatus('error');
     });
     return () => {
-      active = false; resize?.disconnect(); detachTiles?.();
+      active = false; disconnectResize(); detachTiles?.();
       map.current?.remove(); map.current = null; layers.current = null;
     };
   }, [attempt, tiles.attach]);

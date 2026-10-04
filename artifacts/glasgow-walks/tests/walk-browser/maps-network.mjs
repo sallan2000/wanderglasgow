@@ -39,7 +39,7 @@ export async function isolateMaps(page, options = {}) {
   const unexpected = [];
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  await page.addInitScript(({ denyGeolocation }) => {
+  await page.addInitScript(({ denyGeolocation, failAfterPreviewObserve }) => {
     window.geolocationFixture = { requests: [] };
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
@@ -53,13 +53,25 @@ export async function isolateMaps(page, options = {}) {
         },
       },
     });
-    window.observerFixture = { observed: 0, disconnected: 0, live: 0 };
+    window.observerFixture = {
+      observed: 0,
+      disconnected: 0,
+      live: 0,
+      observedTargets: [],
+      failAfterPreviewObserve,
+    };
     const NativeResizeObserver = window.ResizeObserver;
     window.ResizeObserver = class extends NativeResizeObserver {
-      observe(...args) {
+      observe(target, ...args) {
         observerFixture.observed++;
         observerFixture.live++;
-        return super.observe(...args);
+        observerFixture.observedTargets.push(target?.getAttribute?.('data-testid') ?? target?.className ?? 'unknown');
+        const result = super.observe(target, ...args);
+        if (observerFixture.failAfterPreviewObserve && target?.getAttribute?.('data-testid') === 'walk-map-preview') {
+          observerFixture.failAfterPreviewObserve = false;
+          throw new Error('Injected failure after observing the walk preview');
+        }
+        return result;
       }
       disconnect(...args) {
         observerFixture.disconnected++;
@@ -67,7 +79,10 @@ export async function isolateMaps(page, options = {}) {
         return super.disconnect(...args);
       }
     };
-  }, { denyGeolocation: options.denyGeolocation === true });
+  }, {
+    denyGeolocation: options.denyGeolocation === true,
+    failAfterPreviewObserve: options.failAfterPreviewObserve === true,
+  });
 
   let scriptRequests = 0;
   await page.route('**/*', async route => {
