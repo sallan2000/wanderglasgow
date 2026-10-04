@@ -330,6 +330,55 @@ test('admin auth accepts a recovery URL and moves to the admin portal after pass
   ]);
 });
 
+test('admin auth rejects a short recovery password before allowing a corrected password', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html#access_token=fixture&type=recovery');
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+
+  const newPassword = page.getByTestId('input-new-password');
+  const confirmPassword = page.getByTestId('input-confirm-password');
+  const submit = page.getByTestId('button-save-password');
+  await newPassword.fill('short7!');
+  await confirmPassword.fill('short7!');
+  await submit.click();
+
+  await expect(page.getByTestId('status-recovery-error')).toHaveText('Use at least 8 characters.');
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([]);
+
+  await newPassword.fill('long-enough-password');
+  await confirmPassword.fill('long-enough-password');
+  await submit.click();
+
+  await expect(page.getByTestId('status-auth-notice')).toHaveText('Password updated.');
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([
+    { password: 'long-enough-password' },
+  ]);
+});
+
+test('admin auth rejects mismatched recovery passwords before allowing corrected entries', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html#access_token=fixture&type=recovery');
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+
+  const newPassword = page.getByTestId('input-new-password');
+  const confirmPassword = page.getByTestId('input-confirm-password');
+  const submit = page.getByTestId('button-save-password');
+  await newPassword.fill('new-fixture-password');
+  await confirmPassword.fill('different-fixture-password');
+  await submit.click();
+
+  await expect(page.getByTestId('status-recovery-error')).toHaveText('The two passwords do not match.');
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([]);
+
+  await confirmPassword.fill('new-fixture-password');
+  await submit.click();
+
+  await expect(page.getByTestId('status-auth-notice')).toHaveText('Password updated.');
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.authFixture.passwordUpdates)).toEqual([
+    { password: 'new-fixture-password' },
+  ]);
+});
+
 test('admin auth password recovery works with the keyboard on a narrow screen', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto('/tests/walk-browser/recovery.html#access_token=fixture&type=recovery');
