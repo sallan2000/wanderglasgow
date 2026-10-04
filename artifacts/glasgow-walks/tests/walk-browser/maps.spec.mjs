@@ -1,6 +1,31 @@
 import { test, expect } from '@playwright/test';
 import { isolateMaps, openMapFixture, planAtCentre, planWithCentre, markerCoordinates } from './maps-network.mjs';
 
+async function fireTileErrorAndClickRetry(page, tiles, noticeTestId, retryTestId) {
+  return page.evaluate(([layer, noticeId, retryId]) => new Promise(resolve => {
+    const selector = `[data-testid="${noticeId}"]`;
+    const retrySelector = `[data-testid="${retryId}"]`;
+    const observer = new MutationObserver(check);
+    const timeout = setTimeout(() => {
+      observer.disconnect();
+      resolve(false);
+    }, 3000);
+    function check() {
+      const notice = document.querySelector(selector);
+      const button = notice?.querySelector(retrySelector);
+      if (!button) return;
+      observer.disconnect();
+      clearTimeout(timeout);
+      const visible = notice.getClientRects().length > 0;
+      button.click();
+      resolve(visible);
+    }
+    observer.observe(document.body, { childList: true, subtree: true });
+    layer.fire('tileerror');
+    check();
+  }), [tiles, noticeTestId, retryTestId]);
+}
+
 for (const component of ['planner', 'admin']) {
   test(`${component} map reports library failure and retries with a fresh map`, async ({ page }) => {
     const verify = await isolateMaps(page, { failFirst: true });
@@ -200,6 +225,115 @@ test('visitor GPS permission is mocked and requested only after the plan button 
   await expect(page.getByTestId('result-plan')).toBeVisible();
   await expect(page.locator('.leaflet-container')).toBeVisible();
   await verify({ geolocationRequests: 1 });
+});
+
+test('visitor route choices survive tile recovery and ignore errors from a retired tile layer', async ({ page }) => {
+  const verify = await isolateMaps(page);
+  await openMapFixture(page, 'planner');
+  await page.getByTestId('button-mode-theme').click();
+  await page.getByTestId('button-theme-history').click();
+  await page.getByTestId('button-theme-architecture').click();
+  await page.getByTestId('button-radius-3').click();
+  await page.getByTestId('button-stops-4').click();
+  await page.getByTestId('button-start-centre').click();
+  await page.getByTestId('button-plan-route').click();
+  await expect(page.getByTestId('result-plan')).toBeVisible();
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => {
+    let tiles;
+    window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });
+    return Boolean(tiles) && !tiles._loading;
+  })).toBe(true);
+
+  const originalMap = await page.evaluateHandle(() => window.mapFixture.live[0]);
+  const originalTiles = await page.evaluateHandle(() => {
+    let tiles;
+    window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });
+    return tiles;
+  });
+  await page.evaluate(tiles => {
+    const redraw = tiles.redraw.bind(tiles);
+    tiles.redrawCalls = 0;
+    tiles.redraw = function(...args) {
+      this.redrawCalls++;
+      return redraw(...args);
+    };
+  }, originalTiles);
+
+  const retryClicked = await fireTileErrorAndClickRetry(
+    page, originalTiles, 'status-plan-map-tiles-error', 'button-plan-map-tiles-retry',
+  );
+  expect(retryClicked, 'The visitor tile warning exposes a usable retry button').toBe(true);
+  await expect.poll(() => page.evaluate(tiles => tiles.redrawCalls, originalTiles)).toBe(1);
+  await expect(page.getByTestId('status-plan-map-tiles-error')).toHaveCount(0);
+  await expect(page.getByTestId('result-plan')).toBeVisible();
+  await expect(page.getByTestId('stop-plan-cathedral')).toBeVisible();
+  await expect(page.getByTestId('stop-plan-george-square')).toBeVisible();
+  await expect(page.getByTestId('button-theme-history')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-theme-architecture')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-radius-3')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-stops-4')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.plannerFixture.planCalls)).toEqual([{
+    origin: { lat: 55.8609, lon: -4.2514 },
+    options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4 },
+  }]);
+  expect(await page.evaluate(() => {
+    const map = window.mapFixture.live[0];
+    let start;
+    let route;
+    const stops = [];
+    map.eachLayer(layer => {
+      if (layer instanceof L.CircleMarker) {
+        const point = layer.getLatLng();
+        start = [point.lat, point.lng];
+      }
+      if (layer instanceof L.GeoJSON) {
+        route = layer.getLayers()[0].getLatLngs().map(point => [point.lat, point.lng]);
+      }
+      if (layer instanceof L.Marker) {
+        stops.push(layer.getTooltip()?.getContent()?.textContent);
+      }
+    });
+    return { start, route, stops };
+  })).toEqual({
+    start: [55.8609, -4.2514],
+    route: [[55.8609, -4.2514], [55.862, -4.234], [55.86, -4.25]],
+    stops: ['1. Glasgow Cathedral', '2. George Square'],
+  });
+  expect(await page.evaluate(map => window.mapFixture.live[0] === map, originalMap)).toBe(true);
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.removed)).toBe(0);
+
+  // Replanning replaces the map and its tile layer while keeping the visitor's
+  // category and starting-point choices. An event from the old layer is stale.
+  await page.getByTestId('button-radius-4').click();
+  await page.getByTestId('button-plan-route').click();
+  await expect(page.getByTestId('result-plan')).toBeVisible();
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => window.mapFixture.created)).toBe(2);
+  const activeTiles = await page.evaluateHandle(() => {
+    let tiles;
+    window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });
+    return tiles;
+  });
+  expect(await page.evaluate(([oldLayer, newLayer]) => oldLayer !== newLayer, [originalTiles, activeTiles])).toBe(true);
+
+  await page.evaluate(tiles => tiles.fire('tileerror'), originalTiles);
+  await expect(page.getByTestId('status-plan-map-tiles-error')).toHaveCount(0);
+  await expect(page.getByTestId('result-plan')).toBeVisible();
+  await expect(page.getByTestId('button-radius-4')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-theme-history')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-theme-architecture')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.plannerFixture.planCalls.at(-1))).toEqual({
+    origin: { lat: 55.8609, lon: -4.2514 },
+    options: { theme: ['History', 'Architecture'], radiusKm: 4, maxStops: 4 },
+  });
+
+  await page.evaluate(tiles => tiles.fire('tileerror'), activeTiles);
+  await expect(page.getByTestId('status-plan-map-tiles-error')).toBeVisible();
+  await verify();
 });
 
 for (const gpsError of [
