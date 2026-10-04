@@ -104,6 +104,51 @@ test('walk preview identifies map initialization failure and retries map creatio
   await verify();
 });
 
+for (const failure of [
+  {
+    name: 'Leaflet load failure',
+    options: { failFirst: true },
+    type: 'leaflet',
+    message: 'Leaflet could not load',
+  },
+  {
+    name: 'map initialization failure',
+    options: { failMapFirst: true },
+    type: 'initialization',
+    message: 'preview map could not be initialized',
+  },
+]) {
+  test(`walk editor stays usable and saves a draft after ${failure.name}`, async ({ page }) => {
+    const verify = await isolateMaps(page, failure.options);
+    await page.goto('/tests/walk-browser/index.html?allowSave=true&stops=3');
+    await expect(page.getByTestId('walk-form')).toBeVisible();
+
+    await page.getByTestId('walk-button-preview').click();
+    await expect(page.getByTestId('walk-status-map-error'))
+      .toContainText(failure.message);
+    await expect(page.getByTestId('walk-status-map-error')).toHaveAttribute('data-failure', failure.type);
+
+    await expect(page.getByTestId('walk-list-stops')).toBeVisible();
+    await expect(page.getByTestId('walk-input-story-0')).toBeVisible();
+    await page.getByTestId('walk-input-story-0').fill('An updated story saved despite the map failure.');
+    await page.getByTestId('walk-button-down-0').click();
+    await expect(page.getByTestId('walk-stop-0')).toContainText('George Square');
+    await expect(page.getByTestId('walk-input-story-1'))
+      .toHaveValue('An updated story saved despite the map failure.');
+
+    const saveButton = page.getByTestId('walk-button-save-draft');
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
+    await expect(page.getByTestId('walk-overlay-editor')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.walkFixture.state.saves)).toBe(1);
+    const saved = await page.evaluate(() => window.walkFixture.state.savedWalk);
+    expect(saved.published).toBe(false);
+    expect(saved.stops[0].name).toBe('George Square');
+    expect(saved.stops[1].story).toBe('An updated story saved despite the map failure.');
+    await verify();
+  });
+}
+
 test('walk preview ignores a late Leaflet load after closing and works when reopened', async ({ page }) => {
   const options = { holdFirst: true };
   const verify = await isolateMaps(page, options);

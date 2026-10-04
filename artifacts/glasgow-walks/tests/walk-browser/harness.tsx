@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AdminWalkEditor from '../../src/AdminWalkEditor';
-import { state, CatalogueError } from './transport';
+import { state, CatalogueError, configureSaveFixture } from './transport';
 import '../../src/index.css';
 import '../../src/admin.css';
+
+configureSaveFixture(new URLSearchParams(location.search).get('allowSave') === 'true');
 
 const stops = [
   { name: 'Cathedral', place: 'Castle Street', lat: 55.862, lon: -4.234, story: 'An original cathedral story.' },
@@ -40,7 +42,7 @@ function Harness() {
     {!open && <p data-testid="fixture-closed">Editor closed without saving</p>}
     {open && <AdminWalkEditor walk={walk} categories={['History']}
       attractions={[]} attractionsLoading={false} attractionsError=""
-      onReloadSources={() => {}} onSaved={() => { throw new Error('Unexpected save'); }}
+      onReloadSources={() => {}} onSaved={() => setOpen(false)}
       onClose={() => setOpen(false)} />}
   </>;
 }

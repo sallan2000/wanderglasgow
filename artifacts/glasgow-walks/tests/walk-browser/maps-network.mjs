@@ -106,7 +106,7 @@ export async function isolateMaps(page, options = {}) {
 }
 
 export async function openMapFixture(page, component) {
-  await page.goto(`/tests/walk-browser/map-fixture.html?component=${component}`);
+  await page.goto(`/tests/walk-browser/map-fixture.html?component=${component}`, { waitUntil: 'domcontentloaded' });
 }
 
 export async function planWithCentre(page) {
