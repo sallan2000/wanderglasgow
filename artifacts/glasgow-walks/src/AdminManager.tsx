@@ -7,9 +7,9 @@ import AdminStartingAreas from './AdminStartingAreas';
 import { DEFAULT_CATEGORIES } from './tours';
 
 type Editing = { item?: ManagedAttraction; key: number } | null;
-type Props = { onSignOut: () => void };
+type Props = { onSignOut: () => void; onStartingAreaState: (dirty: boolean, locked: boolean) => void };
 
-export default function AdminManager({ onSignOut }: Props) {
+export default function AdminManager({ onSignOut, onStartingAreaState }: Props) {
   void onSignOut;
   const [items, setItems] = useState<ManagedAttraction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,7 +147,7 @@ export default function AdminManager({ onSignOut }: Props) {
       </div>
       {categoriesOpen && <AdminCategories categories={categories} loading={categoriesLoading} error={categoryError}
         needsSetup={categoryNeedsSetup} onAdded={categoryAdded} onRefresh={() => void loadCategories()} onClose={() => setCategoriesOpen(false)} />}
-      {startOpen && <AdminStartingAreas onClose={() => setStartOpen(false)} onDirty={setStartDirty} />}
+      {startOpen && <AdminStartingAreas onClose={() => setStartOpen(false)} onDirty={setStartDirty} onNavigationState={onStartingAreaState} />}
       <div className="adm-tools">
         <input className="adm-in" type="search" placeholder="Search by name or address" aria-label="Search attractions" value={q} onChange={(e) => setQ(e.target.value)} data-testid="input-search" />
         <select className="adm-in" aria-label="Filter by category" value={theme} onChange={(e) => setTheme(e.target.value)} data-testid="select-theme-filter">

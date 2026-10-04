@@ -11,7 +11,11 @@ const server = await createServer({
     resolveId(id, importer) {
       if (id === './attraction-store' && (importer?.endsWith('/src/starting-area-store.ts') || importer?.endsWith('/src/WalkPlanner.tsx')))
         return resolve(fixture, 'transport.ts');
+      if (id === './attraction-store' && importer?.startsWith(root) &&
+          ['/src/AdminPortal.tsx', '/src/AdminAuth.tsx', '/src/AdminManager.tsx', '/src/AdminCategories.tsx', '/src/AdminEditor.tsx'].some(path => importer.endsWith(path)))
+        return resolve(fixture, 'portal-transport.ts');
       if (id === './walk-planner' && importer?.endsWith('/src/WalkPlanner.tsx')) return resolve(fixture, 'planner.ts');
+      if (id === './AdminWalks' && importer?.endsWith('/src/AdminPortal.tsx')) return resolve(fixture, 'walks-stub.tsx');
     },
   }, react(), tailwindcss()],
   esbuild: { target: 'es2022' },

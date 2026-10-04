@@ -5,7 +5,20 @@ const saved = sessionStorage.getItem(key);
 const rows: Row[] = saved ? JSON.parse(saved) : [
   { id: 'centre', name: 'City centre', latitude: 55.8609, longitude: -4.2514, updated_at: 'seed' },
 ];
-export const state = { rows, fail: '', writes: 0, origin: null as { lat: number; lon: number } | null };
+const held = new Map<string, () => void>();
+export const state = {
+  rows,
+  fail: '',
+  writes: 0,
+  origin: null as { lat: number; lon: number } | null,
+  hold: '',
+  holdOperation(operation: string) { this.hold = operation; },
+  releaseOperation(operation: string) {
+    if (this.hold === operation) this.hold = '';
+    held.get(operation)?.();
+    held.delete(operation);
+  },
+};
 Object.assign(window, { areaFixture: state });
 export const supabase = {
   from() {
@@ -24,6 +37,9 @@ export const supabase = {
       async then(resolve: (value: unknown) => void) {
         // Delay exercises loading and double-submit safeguards.
         await new Promise(r => setTimeout(r, 80));
+        if (state.hold === operation) {
+          await new Promise<void>(release => held.set(operation, release));
+        }
         if (state.fail === operation || (state.fail === 'setup' && operation === 'read')) {
           const code = state.fail === 'setup' ? 'PGRST205' : 'NETWORK';
           state.fail = ''; return resolve({ data: null, error: { code } });

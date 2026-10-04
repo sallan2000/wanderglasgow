@@ -87,3 +87,73 @@ test('mobile admin can keep unsaved changes, cancel deletion with keyboard, and 
   await expect(page.getByTestId('status-starting-areas-error')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('admin section navigation keeps or discards unsaved starting-area edits with the keyboard', async ({ page }) => {
+  await page.goto('/tests/starting-areas/portal.html');
+  const attractionsTab = page.getByTestId('admin-tab-attractions');
+  const walksTab = page.getByTestId('admin-tab-walks');
+  await expect(attractionsTab).toBeVisible();
+  await page.getByTestId('button-manage-starting-areas').click();
+  await page.getByTestId('button-edit-starting-area-centre').click();
+
+  const name = page.getByTestId('input-starting-area-name');
+  const lat = page.getByTestId('input-starting-area-lat');
+  const lon = page.getByTestId('input-starting-area-lon');
+  await name.fill('Station square');
+  await lat.fill('55.8712');
+  await lon.fill('-4.2876');
+
+  await walksTab.click();
+  const dialog = page.getByTestId('dialog-discard-starting-area-section');
+  await expect(dialog).toBeVisible();
+  await expect(attractionsTab).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-keep-starting-area-edits')).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await expect(dialog).toBeHidden();
+  await expect(walksTab).toBeFocused();
+  await expect(name).toHaveValue('Station square');
+  await expect(lat).toHaveValue('55.8712');
+  await expect(lon).toHaveValue('-4.2876');
+
+  await walksTab.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('button-discard-starting-area-edits')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('fixture-walks-page')).toBeVisible();
+  await expect(page.getByTestId('panel-starting-areas')).toHaveCount(0);
+
+  await attractionsTab.click();
+  await page.getByTestId('button-manage-starting-areas').click();
+  await page.getByTestId('button-edit-starting-area-centre').click();
+  await expect(name).toHaveValue('City centre');
+  await expect(lat).toHaveValue('55.8609');
+  await expect(lon).toHaveValue('-4.2514');
+});
+
+test('admin cannot switch sections while a starting-area save or delete is in flight', async ({ page }) => {
+  await page.goto('/tests/starting-areas/portal.html');
+  await page.getByTestId('button-manage-starting-areas').click();
+  await page.getByTestId('button-edit-starting-area-centre').click();
+  await page.getByTestId('input-starting-area-name').fill('Saved centre');
+  await page.evaluate(() => window.areaFixture.holdOperation('save'));
+  await page.getByTestId('button-save-starting-area').click();
+  await expect(page.getByTestId('button-save-starting-area')).toBeDisabled();
+  await expect(page.getByTestId('admin-tab-walks')).toBeDisabled();
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('status-starting-area-operation')).toContainText('Finish saving or deleting');
+
+  await page.evaluate(() => window.areaFixture.releaseOperation('save'));
+  await expect(page.getByTestId('button-edit-starting-area-centre')).toBeVisible();
+  await page.evaluate(() => window.areaFixture.holdOperation('delete'));
+  await page.getByTestId('button-delete-starting-area-centre').click();
+  await page.getByTestId('button-confirm-delete-starting-area').click();
+  await expect(page.getByTestId('button-confirm-delete-starting-area')).toBeDisabled();
+  await expect(page.getByTestId('admin-tab-walks')).toBeDisabled();
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('status-starting-area-operation')).toContainText('Finish saving or deleting');
+  await page.evaluate(() => window.areaFixture.releaseOperation('delete'));
+  await expect(page.getByTestId('row-starting-area-centre')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-walks')).toBeEnabled();
+});

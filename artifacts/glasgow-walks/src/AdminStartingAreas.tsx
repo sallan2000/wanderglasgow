@@ -3,12 +3,16 @@ import { MapPin, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { listStartingAreas, saveStartingArea, deleteStartingArea, StartingAreaError, StartingAreaSetupError, type StartingArea } from './starting-area-store';
 import AdminMap from './AdminMap';
 
-type Props = { onClose: () => void; onDirty: (dirty: boolean) => void };
+type Props = {
+  onClose: () => void;
+  onDirty: (dirty: boolean) => void;
+  onNavigationState: (dirty: boolean, locked: boolean) => void;
+};
 type Form = { name: string; lat: string; lon: string };
 const blank: Form = { name: '', lat: '', lon: '' };
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
-export default function AdminStartingAreas({ onClose, onDirty }: Props) {
+export default function AdminStartingAreas({ onClose, onDirty, onNavigationState }: Props) {
   const [items, setItems] = useState<StartingArea[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -33,11 +37,19 @@ export default function AdminStartingAreas({ onClose, onDirty }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const onDirtyRef = useRef(onDirty);
   onDirtyRef.current = onDirty;
+  const onNavigationStateRef = useRef(onNavigationState);
+  onNavigationStateRef.current = onNavigationState;
 
   const dirty = editing !== null && JSON.stringify(form) !== JSON.stringify(base);
   const locked = busy || delBusy;
-  useEffect(() => { onDirtyRef.current(dirty || locked); }, [dirty, locked]);
-  useEffect(() => () => onDirtyRef.current(false), []);
+  useEffect(() => {
+    onDirtyRef.current(dirty || locked);
+    onNavigationStateRef.current(dirty, locked);
+  }, [dirty, locked]);
+  useEffect(() => () => {
+    onDirtyRef.current(false);
+    onNavigationStateRef.current(false, false);
+  }, []);
   useEffect(() => { alive.current = true; return () => { alive.current = false; abort.current?.abort(); }; }, []);
   const dialogOpen = Boolean(discard || del);
   useEffect(() => {

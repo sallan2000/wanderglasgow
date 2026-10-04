@@ -8,4 +8,4 @@ import './transport';
 const visitor = new URLSearchParams(location.search).get('view') === 'visitor';
 createRoot(document.getElementById('root')!).render(visitor
   ? <WalkPlanner categories={['History']} categoriesLoading={false} categoriesError="" onRetryCategories={() => {}} />
-  : <div className="adm"><main className="adm-main"><AdminStartingAreas onClose={() => {}} onDirty={() => {}} /></main></div>);
+  : <div className="adm"><main className="adm-main"><AdminStartingAreas onClose={() => {}} onDirty={() => {}} onNavigationState={() => {}} /></main></div>);

@@ -20,3 +20,9 @@ Keyboard focus does not wrap from the last tabbable control to the first one whe
 **Why:** Assuming wraparound made a keyboard retry test assert an impossible tab sequence after submitting from the final form control.
 
 **How to apply:** After an async submission, assert where focus actually remains and use that focused control for keyboard retries, rather than assuming Tab cycles back to the first link.
+
+Use explicitly held and released fixture requests when testing transient pending states rather than relying on short fixed delays.
+
+**Why:** Browser scheduling can let a timed fake request finish before the test observes its disabled controls or status message.
+
+**How to apply:** Add a controllable hold for the operation under test, assert the UI remains protected while held, then release it and verify the completed outcome.

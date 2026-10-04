@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { LogOut } from 'lucide-react';
 import './admin.css';
@@ -30,6 +30,9 @@ export default function AdminPortal() {
   const [outErr, setOutErr] = useState('');
   const [notice, setNotice] = useState('');
   const [section, setSection] = useState<'attractions' | 'walks'>('attractions');
+  const [startingAreaState, setStartingAreaState] = useState({ dirty: false, locked: false });
+  const [pendingSection, setPendingSection] = useState<'attractions' | 'walks' | null>(null);
+  const sectionDialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
@@ -72,6 +75,44 @@ export default function AdminPortal() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!pendingSection || !sectionDialogRef.current) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = sectionDialogRef.current;
+    dialog.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPendingSection(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+      if (!buttons.length) { event.preventDefault(); dialog.focus(); return; }
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    dialog.addEventListener('keydown', key);
+    return () => {
+      dialog.removeEventListener('keydown', key);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [pendingSection]);
+
+  const requestSection = (next: 'attractions' | 'walks') => {
+    if (next === section) return;
+    if (section === 'attractions' && startingAreaState.locked) return;
+    if (section === 'attractions' && startingAreaState.dirty) {
+      setPendingSection(next);
+      return;
+    }
+    setSection(next);
+  };
+
   if (!supabase) return (
     <div className="adm"><Message title="Supabase is not configured" testid="status-not-configured">
       <div className="adm-msg err">Add the project URL and public publishable key, then rebuild the website.</div>
@@ -113,10 +154,23 @@ export default function AdminPortal() {
       {notice && <div className="adm-msg ok" role="status" data-testid="status-auth-notice">{notice}</div>}
       {err && <div style={{ padding: '16px clamp(16px,4vw,56px) 0' }}>{err}</div>}
       <nav className="adm-section-tabs" aria-label="Administration sections">
-        <button className={`adm-btn${section === 'attractions' ? ' pri' : ''}`} aria-pressed={section === 'attractions'} onClick={() => setSection('attractions')} data-testid="admin-tab-attractions">Attractions</button>
-        <button className={`adm-btn${section === 'walks' ? ' pri' : ''}`} aria-pressed={section === 'walks'} onClick={() => setSection('walks')} data-testid="admin-tab-walks">Curated walks</button>
+        <button className={`adm-btn${section === 'attractions' ? ' pri' : ''}`} aria-pressed={section === 'attractions'} onClick={() => requestSection('attractions')} data-testid="admin-tab-attractions">Attractions</button>
+        <button className={`adm-btn${section === 'walks' ? ' pri' : ''}`} aria-pressed={section === 'walks'} onClick={() => requestSection('walks')} disabled={section === 'attractions' && startingAreaState.locked} aria-describedby={section === 'attractions' && startingAreaState.locked ? 'status-starting-area-operation' : undefined} data-testid="admin-tab-walks">Curated walks</button>
       </nav>
-      {section === 'attractions' ? <AdminManager key={userId} onSignOut={signOut} /> : <div className="adm-main"><AdminWalks key={userId} /></div>}
+      {startingAreaState.locked && section === 'attractions' && <p id="status-starting-area-operation" className="adm-hint" role="status" data-testid="status-starting-area-operation" style={{ padding: '0 clamp(16px,4vw,56px)' }}>Finish saving or deleting the starting area before switching sections.</p>}
+      {section === 'attractions' ? <AdminManager key={userId} onSignOut={signOut} onStartingAreaState={(dirty, locked) => setStartingAreaState({ dirty, locked })} /> : <div className="adm-main"><AdminWalks key={userId} /></div>}
+      {pendingSection && (
+        <div className="adm-ov center" role="alertdialog" aria-modal="true" aria-labelledby="section-discard-title" data-testid="dialog-discard-starting-area-section" ref={sectionDialogRef} tabIndex={-1}>
+          <div className="adm-dlg">
+            <h2 id="section-discard-title">Discard unsaved changes?</h2>
+            <p>Your starting-area edits have not been saved. Switching sections will discard the name and coordinates you entered.</p>
+            <div className="adm-dlg-acts">
+              <button className="adm-btn" onClick={() => setPendingSection(null)} data-testid="button-keep-starting-area-edits">Keep editing</button>
+              <button className="adm-btn warn" onClick={() => { const next = pendingSection; setPendingSection(null); setSection(next); }} data-testid="button-discard-starting-area-edits">Discard changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
