@@ -98,6 +98,9 @@ export function SignIn({ notice }: { notice?: string }) {
     <AuthFrame>
       <div className="eyebrow">Administrators only</div>
       <h1>{mode === 'in' ? 'Sign in' : 'Reset your password'}</h1>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="status-auth-mode">
+        {mode === 'in' ? 'Sign-in form' : 'Password reset form'}
+      </div>
       {notice && <div className="adm-msg ok" data-testid="status-auth-notice">{notice}</div>}
       <form onSubmit={submit} noValidate>
         <div><label className="adm-lab" htmlFor="em">Email</label>

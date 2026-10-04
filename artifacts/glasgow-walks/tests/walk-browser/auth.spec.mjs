@@ -19,6 +19,24 @@ test('admin auth sign-in and password reset omit owner setup disclosure', async 
   await expectCleanAuthScreen(page, 'Sign in');
 });
 
+test('admin auth announces mode changes without moving keyboard focus', async ({ page }) => {
+  await page.goto('/tests/walk-browser/auth.html');
+
+  const toggle = page.getByTestId('button-toggle-forgot');
+  const announcement = page.getByTestId('status-auth-mode');
+  await expect(announcement).toHaveAttribute('role', 'status');
+  await expect(announcement).toHaveAttribute('aria-live', 'polite');
+
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(announcement).toHaveText('Password reset form');
+  await expect(toggle).toBeFocused();
+
+  await page.keyboard.press('Space');
+  await expect(announcement).toHaveText('Sign-in form');
+  await expect(toggle).toBeFocused();
+});
+
 test('admin auth validates a missing email and clears a rejected sign-in password', async ({ page }) => {
   const supabaseRequests = [];
   page.on('request', (request) => {
