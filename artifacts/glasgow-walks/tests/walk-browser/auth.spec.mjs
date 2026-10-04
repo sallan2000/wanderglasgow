@@ -494,6 +494,16 @@ test('admin auth returns to a clean sign-in screen after signing out', async ({ 
   await expect(page.getByTestId('fixture-admin-portal')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.authFixture.authEvents)).toEqual(['SIGNED_OUT']);
   await expect.poll(() => page.evaluate(() => window.authFixture.signedOutSessions)).toEqual([null]);
+
+  await page.reload();
+
+  await expectCleanAuthScreen(page, 'Sign in');
+  await expect(page.getByTestId('button-signout')).toHaveCount(0);
+  await expect(page.getByTestId('text-session-email')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-walks')).toHaveCount(0);
+  await expect(page.getByTestId('fixture-admin-portal')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.authFixture.adminCheckUserIds)).toEqual([]);
 });
 
 test('admin auth keeps the session and allows retry when sign-out rejects', async ({ page }) => {

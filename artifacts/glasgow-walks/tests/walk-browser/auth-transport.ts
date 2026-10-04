@@ -27,7 +27,19 @@ const makeSession = (id: string, email: string): typeof testSession => ({
 });
 
 const params = () => new URLSearchParams(window.location.search);
-let currentSession: typeof testSession | null = params().get('session') === 'none' ? null : testSession;
+const persistedSessionKey = 'walk-browser-auth-fixture-session';
+const restoreSession = (): typeof testSession | null => {
+  const persistedSession = window.localStorage.getItem(persistedSessionKey);
+  if (persistedSession !== null) {
+    return JSON.parse(persistedSession) as typeof testSession | null;
+  }
+  return params().get('session') === 'none' ? null : testSession;
+};
+let currentSession: typeof testSession | null = restoreSession();
+const persistSession = () => {
+  window.localStorage.setItem(persistedSessionKey, JSON.stringify(currentSession));
+};
+if (window.localStorage.getItem(persistedSessionKey) === null) persistSession();
 const adminAccess = new Map([[testSession.user.id, true]]);
 const authListeners = new Set<AuthListener>();
 const heldAdminChecks = new Set<string>();
@@ -67,6 +79,7 @@ export const authFixture = {
   switchAccount(userId: string, email: string, isAdmin: boolean) {
     const nextSession = makeSession(userId, email);
     currentSession = nextSession;
+    persistSession();
     adminAccess.set(userId, isAdmin);
     authFixture.authEvents.push('SIGNED_IN');
     for (const callback of authListeners) callback('SIGNED_IN', nextSession);
@@ -150,6 +163,7 @@ const fixtureSupabase = {
       }
       authFixture.authEvents.push('SIGNED_OUT');
       currentSession = null;
+      persistSession();
       authFixture.signedOutSessions.push(null);
       for (const callback of authListeners) callback('SIGNED_OUT', null);
       return { error: null };
