@@ -99,6 +99,9 @@ export const supabase = {
       if (params().get('reset') === 'reject-once' && authFixture.resetRequests.length === 1) {
         throw new Error('Network request failed');
       }
+      if (params().get('reset') === 'error-once' && authFixture.resetRequests.length === 1) {
+        return { error: { message: 'Email provider declined delivery' } };
+      }
       return { error: null };
     },
     async updateUser({ password }: { password: string }) {

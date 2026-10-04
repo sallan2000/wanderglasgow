@@ -215,6 +215,24 @@ test('admin auth restores reset-email retry after a rejected request', async ({ 
   await expect.poll(() => page.evaluate(() => window.authFixture.resetRequests)).toHaveLength(2);
 });
 
+test('admin auth restores reset-email retry after delivery is declined', async ({ page }) => {
+  await page.goto('/tests/walk-browser/auth.html?reset=error-once');
+  await page.getByTestId('button-toggle-forgot').click();
+  await page.getByTestId('input-email').fill('admin@example.invalid');
+
+  const submit = page.getByTestId('button-submit-auth');
+  await submit.click();
+  await expect(page.getByTestId('status-auth-error')).toHaveText(
+    'The reset email could not be sent just now. Please try again shortly.',
+  );
+  await expect(page.getByTestId('status-auth-error')).not.toContainText('Email provider declined delivery');
+  await expect(submit).toBeEnabled();
+
+  await submit.click();
+  await expect(page.getByTestId('status-auth-ok')).toContainText('reset link is on its way');
+  await expect.poll(() => page.evaluate(() => window.authFixture.resetRequests)).toHaveLength(2);
+});
+
 test('admin auth accepts a recovery URL and moves to the admin portal after password update', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
