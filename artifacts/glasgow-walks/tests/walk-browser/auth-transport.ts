@@ -2,6 +2,7 @@
 type AuthCall = { email: string; redirectTo?: string };
 type PasswordCall = { password: string };
 type SignInCall = { email: string };
+type AuthListener = (event: string, session: typeof testSession | null) => void;
 
 const testSession = {
   access_token: 'fixture-access-token',
@@ -25,8 +26,11 @@ export const authFixture = {
   passwordUpdates: [] as PasswordCall[],
   signInRequests: [] as SignInCall[],
   authEvents: [] as string[],
+  signedOutSessions: [] as (typeof testSession | null)[],
   adminChecks: [] as boolean[],
 };
+
+const authListeners = new Set<AuthListener>();
 
 if (typeof window !== 'undefined') {
   Object.assign(window, { authFixture });
@@ -51,12 +55,13 @@ export const supabase = {
       return { data: { session: sessionForUrl() }, error: null };
     },
     onAuthStateChange(callback: (event: string, session: typeof testSession | null) => void) {
+      authListeners.add(callback);
       const mockAuthEvent = params().get('mockAuthEvent');
       if (mockAuthEvent) {
         authFixture.authEvents.push(mockAuthEvent);
         callback(mockAuthEvent, sessionForUrl());
       }
-      return { data: { subscription: { unsubscribe() {} } } };
+      return { data: { subscription: { unsubscribe() { authListeners.delete(callback); } } } };
     },
     async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
       authFixture.resetRequests.push({ email, redirectTo: options?.redirectTo });
@@ -86,6 +91,9 @@ export const supabase = {
       return { error: null };
     },
     async signOut() {
+      authFixture.authEvents.push('SIGNED_OUT');
+      authFixture.signedOutSessions.push(null);
+      for (const callback of authListeners) callback('SIGNED_OUT', null);
       return { error: null };
     },
   },

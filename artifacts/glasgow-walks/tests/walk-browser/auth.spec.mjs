@@ -305,6 +305,25 @@ test('admin auth opens recovery from PASSWORD_RECOVERY after the URL marker is g
   await expect(page.getByRole('heading', { name: 'Checking your access' })).toHaveCount(0);
 });
 
+test('admin auth returns to a clean sign-in screen after signing out', async ({ page }) => {
+  await page.goto('/tests/walk-browser/recovery.html');
+
+  await expect(page.getByTestId('button-signout')).toBeVisible();
+  await expect(page.getByTestId('text-session-email')).toHaveText('admin@example.invalid');
+  await expect(page.getByTestId('fixture-admin-portal')).toBeVisible();
+
+  await page.getByTestId('button-signout').click();
+
+  await expectCleanAuthScreen(page, 'Sign in');
+  await expect(page.getByTestId('button-signout')).toHaveCount(0);
+  await expect(page.getByTestId('text-session-email')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-attractions')).toHaveCount(0);
+  await expect(page.getByTestId('admin-tab-walks')).toHaveCount(0);
+  await expect(page.getByTestId('fixture-admin-portal')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.authFixture.authEvents)).toEqual(['SIGNED_OUT']);
+  await expect.poll(() => page.evaluate(() => window.authFixture.signedOutSessions)).toEqual([null]);
+});
+
 test('admin auth reports an expired recovery link and keeps the password form available', async ({ page }) => {
   await page.goto('/tests/walk-browser/recovery.html?update=expired#access_token=fixture&type=recovery');
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
