@@ -225,6 +225,44 @@ test('closing the editor during library load leaves no stale map or observer and
   await verify();
 });
 
+test('reopening the full editor before library load resolves creates only its usable map', async ({ page }) => {
+  const options = { holdFirst: true };
+  const verify = await isolate(page, options);
+  await open(page);
+  await page.getByTestId('walk-button-preview').click();
+  await expect(page.getByText('Loading map…', { exact: true })).toBeVisible();
+
+  await page.getByTestId('walk-button-close').click();
+  await expect(page.getByTestId('fixture-closed')).toBeVisible();
+  expect(await page.evaluate(() => window.walkFixture.state.requests[0].signal.aborted)).toBe(true);
+  await expect(page.locator('.leaflet-container')).toHaveCount(0);
+  expect(await page.evaluate(() => window.observerFixture.observed)).toBe(0);
+
+  // Reopen the entire editor, and start another preview against the same
+  // still-pending Leaflet load before releasing its response.
+  await page.getByTestId('fixture-reopen').click();
+  await expect(page.getByTestId('walk-form')).toBeVisible();
+  await page.getByTestId('walk-button-preview').click();
+  await expect(page.getByText('Loading map…', { exact: true })).toBeVisible();
+  await expect(page.locator('script[data-leaflet]')).toHaveCount(1);
+
+  await options.releaseScript();
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
+  await expect(page.locator('.leaflet-container')).toBeVisible();
+  expect(await page.evaluate(() => window.mapFixture.created)).toBe(1);
+  expect(await page.evaluate(() => window.mapFixture.removed)).toBe(0);
+  expect(await page.evaluate(() => window.mapFixture.live.length)).toBe(1);
+  expect(await page.evaluate(() => window.observerFixture.observed)).toBe(1);
+  expect(await page.evaluate(() => window.observerFixture.live)).toBe(1);
+  expect(await page.evaluate(() => {
+    const map = window.mapFixture.live[0];
+    const canvas = document.querySelector('[data-testid="walk-map-preview"]');
+    return map.getContainer() === canvas && canvas?.isConnected;
+  })).toBe(true);
+  await expect(page.locator('.leaflet-control-zoom-in')).toBeVisible();
+  await verify();
+});
+
 test('dirty discard keeps edits on cancel; confirmed discard aborts and cleans up', async ({ page }) => {
   const verify = await isolate(page);
   await open(page); await preview(page);
