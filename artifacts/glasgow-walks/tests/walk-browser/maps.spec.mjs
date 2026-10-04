@@ -263,6 +263,51 @@ for (const failure of [
   });
 }
 
+for (const failure of [
+  {
+    name: 'Leaflet load failure',
+    options: { failFirst: true },
+    type: 'leaflet',
+    message: 'Leaflet could not load',
+  },
+  {
+    name: 'map initialization failure',
+    options: { failMapFirst: true },
+    type: 'initialization',
+    message: 'preview map could not be initialized',
+  },
+]) {
+  test(`walk editor publishes after successful route measurement despite ${failure.name}`, async ({ page }) => {
+    const verify = await isolateMaps(page, failure.options);
+    await page.goto('/tests/walk-browser/index.html?allowSave=true&stops=3');
+    await expect(page.getByTestId('walk-form')).toBeVisible();
+
+    await page.getByTestId('walk-button-preview').click();
+    await expect(page.getByTestId('walk-status-map-error'))
+      .toContainText(failure.message);
+    await expect(page.getByTestId('walk-status-map-error')).toHaveAttribute('data-failure', failure.type);
+    await expect.poll(() => page.evaluate(() => window.walkFixture.state.requests.length)).toBe(1);
+
+    // Route measurement is independent of the optional map preview.
+    await page.evaluate(() => window.walkFixture.complete(0, 4.2, 57));
+    await expect(page.getByTestId('walk-status-metrics')).toContainText('4.2 km · 57 min');
+    await expect(page.getByTestId('walk-status-map-error')).toBeVisible();
+    expect(await page.evaluate(() => window.mapFixture?.live.length ?? 0)).toBe(0);
+    await expect(page.locator('.leaflet-control-zoom-in, .leaflet-marker-icon')).toHaveCount(0);
+
+    await page.getByTestId('walk-button-publish').click();
+    await expect(page.getByTestId('walk-overlay-editor')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.walkFixture.state.saves)).toBe(1);
+    const saved = await page.evaluate(() => window.walkFixture.state.savedWalk);
+    expect(saved).toMatchObject({
+      published: true,
+      distanceKm: 4.2,
+      minutes: 57,
+    });
+    await verify();
+  });
+}
+
 test('walk editor keeps walk and story edits after a failed draft save and saves them on retry', async ({ page }) => {
   const verify = await isolateMaps(page);
   await page.goto('/tests/walk-browser/index.html?allowSave=true&stops=3');
