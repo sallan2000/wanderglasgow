@@ -7,7 +7,7 @@ import ts from 'typescript';
 
 const temporary = await mkdtemp(join(tmpdir(), 'glasgow-planner-'));
 try {
-  for (const name of ['tours', 'attractions', 'efficient-walk-order', 'walk-planner']) {
+  for (const name of ['tours', 'attractions', 'access-details', 'efficient-walk-order', 'walk-planner']) {
     const source = await readFile(resolve('src', `${name}.ts`), 'utf8');
     const output = ts.transpileModule(source, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },

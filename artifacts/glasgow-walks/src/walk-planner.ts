@@ -1,5 +1,6 @@
 import { attractions, distanceKm, type Attraction, type Position } from './attractions';
 import type { Theme } from './tours';
+import { matchesAccessPreference, type AccessPreference } from './access-details';
 import { findEfficientOrderAsync, MAX_WALK_CANDIDATES, WalkOptimisationLimitError } from './efficient-walk-order';
 export { findEfficientOrder } from './efficient-walk-order';
 
@@ -12,6 +13,7 @@ export type PlannerOptions = {
   radiusKm: number;
   maxStops: number;
   maxWalkKm?: number;
+  accessPreference?: AccessPreference;
 };
 export type NearbyAttraction = Attraction & { walkingDistanceMeters: number; included: boolean };
 export type PlannedWalk = {
@@ -23,6 +25,7 @@ export type PlannedWalk = {
   durationSeconds: number;
   geometry: { type: 'LineString'; coordinates: [number, number][] };
   excludedCount: number;
+  accessPreference?: AccessPreference;
 };
 
 export class WalkPlanningError extends Error {
@@ -81,18 +84,25 @@ export async function planAttractionWalk(
     throw new WalkPlanningError('Choose at least one valid category, a radius and number of stops.', 'location');
   }
   const maxWalkKm = options.maxWalkKm ?? defaultWalkLimitKm(options.radiusKm);
+  const accessPreference = options.accessPreference ?? 'any';
+  if (accessPreference !== 'any' && accessPreference !== 'step-free') {
+    throw new WalkPlanningError('Choose a valid attraction access preference.', 'location');
+  }
   if (!Number.isFinite(maxWalkKm) || maxWalkKm <= 0 || maxWalkKm > 15) {
     throw new WalkPlanningError('Choose a walking limit between zero and 15 km.', 'location');
   }
   const categoryFilter = selectedThemes === null ? null : new Set(selectedThemes);
   const candidates = catalogue
     .filter(item => categoryFilter === null || categoryFilter.has(item.theme))
+    .filter(item => matchesAccessPreference(item.access, accessPreference))
     .map(item => ({ item, distance: distanceKm(origin, item) }))
     .filter(entry => entry.distance <= options.radiusKm)
     .sort((a, b) => a.distance - b.distance)
     .map(entry => entry.item);
   if (!candidates.length) throw new WalkPlanningError(
-    'No attractions match your selected categories near your starting point. Try different categories, a wider radius, or another Glasgow start.', 'empty');
+    accessPreference === 'step-free'
+      ? 'No nearby attractions have a recorded step-free entrance for your selected categories. Unknown access is excluded. Clear the entrance preference, widen the radius or choose another start. Paths between sights are not assessed.'
+      : 'No attractions match your selected categories near your starting point. Try different categories, a wider radius, or another Glasgow start.', 'empty');
   if (candidates.length > MAX_WALK_CANDIDATES) throw new WalkPlanningError(
     `More than ${MAX_WALK_CANDIDATES} matching sights are nearby. Choose a smaller radius or more specific categories so every candidate can be compared; no approximate walk has been substituted.`, 'location');
   const coordinates = [origin, ...candidates].map(point => `${point.lon},${point.lat}`).join(';');
@@ -138,7 +148,7 @@ export async function planAttractionWalk(
     'The walking service returned a route that does not match the optimised distances. Please try again; no less-efficient route has been substituted.', 'service');
   const selected = new Set(stops.map(stop => stop.id));
   return {
-    origin, theme: Array.isArray(options.theme) ? [...options.theme] : options.theme, stops,
+    origin, theme: Array.isArray(options.theme) ? [...options.theme] : options.theme, stops, accessPreference,
     nearby: reachable.map(({ item, distance }) => ({ ...item, walkingDistanceMeters: distance, included: selected.has(item.id) })),
     distanceMeters: route.distance, durationSeconds: route.duration, geometry: route.geometry,
     excludedCount: reachable.length - stops.length,

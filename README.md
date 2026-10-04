@@ -127,6 +127,16 @@ An attraction has a name, description, optional location/address label, precise 
 
 Names are case-insensitively unique (2–200 characters). Descriptions require 10–5,000 characters; location labels allow up to 300. Latitude/longitude and category membership are validated in the client and database.
 
+### Attraction access details
+
+In the attraction editor, record **Step-free entrance**, **Accessible toilet** and **Seating / rest point** as Unknown, Yes or No, plus an optional owner-provided note (up to 1,500 characters). Save explicitly. Older attractions default to Unknown; this is not the same as No. These records are owner-maintained information, not certification.
+
+For an existing Supabase installation, run `artifacts/glasgow-walks/public/access-details-upgrade.sql` in the owner's SQL Editor. The script is re-runnable, preserves existing records and permissions, and adds the fields without altering administrator access. Fresh `setup.sql` already includes it. An older installation can still be read; saving requires the upgrade, with a download link shown if columns are missing.
+
+In either planner mode, **Only stops with a recorded step-free entrance** excludes both No and Unknown entrances before routing. Generated stop cards show the recorded details and note. Clear the filter if nothing matches. The preference is held only in memory and is not stored.
+
+The filter describes attraction entrances only: paths between sights are **not assessed**, and it does not promise an accessible walking route. Curated stop snapshots and emailed itineraries do not yet include these structured access details.
+
 ### Add custom categories
 
 If the original four-category database is already installed, download `categories-upgrade.sql` from **Admin → Manage categories** (or use `artifacts/glasgow-walks/public/categories-upgrade.sql` in this repository) and run its entire contents in the same Supabase project's SQL Editor. This one-time, re-runnable update preserves attraction data, timestamps, drafts and administrator access. Fresh installations already include it in `artifacts/glasgow-walks/public/setup.sql`.
@@ -193,6 +203,8 @@ From the repository root, run `pnpm --filter @workspace/glasgow-walks run <scrip
 | `setup:export` | Regenerate downloadable owner setup and upgrade SQL without building the website. |
 | `serve` | Preview an existing static build locally; not a production hosting service. |
 | `test:planner` | Exact optimisation versus exhaustive examples, candidate selection, categories, budgets, cancellation, distance consistency and errors. |
+| `test:access` | Access validation, legacy Unknown defaults, storage contracts, filtering and real isolated PostgreSQL upgrade/fresh-setup permissions. |
+| `test:access:browser` | Actual editor saving/reopening/reloading, schema-upgrade guidance, visitor access display/filter and keyboard/mobile controls with intercepted services. |
 | `test:admin` | Real isolated PostgreSQL permissions, drafts, validation, conflicts, safe upgrades/seeds, revocation and the read-only audit script. |
 | `test:walks` | Curated-walk validation and storage/measurement request contracts. |
 | `test:starting-areas` | Starting-area validation and storage request contracts. |

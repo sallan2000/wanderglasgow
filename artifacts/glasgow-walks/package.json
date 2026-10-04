@@ -10,6 +10,8 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:planner": "node scripts/test-planner.mjs",
+    "test:access": "node scripts/export-supabase-setup.mjs && node scripts/test-access-details.mjs",
+    "test:access:browser": "tsc -p tsconfig.access-browser.json --noEmit && playwright test --config playwright.access.config.mjs",
     "test:email": "tsc -p tsconfig.email.json --noEmit && node scripts/test-walk-email.mjs",
     "test:email:browser": "tsc -p tsconfig.email-browser.json --noEmit && playwright test --config playwright.email.config.mjs",
     "test:starting-areas": "node scripts/test-starting-areas.mjs",

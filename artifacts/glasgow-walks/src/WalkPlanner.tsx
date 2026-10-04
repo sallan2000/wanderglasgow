@@ -8,6 +8,8 @@ import type { Position } from './attractions';
 import { CatalogueError, loadPublicCatalogue } from './attraction-store';
 import { loadPublicStartingAreas, StartingAreaError } from './starting-area-store';
 import { useStartingAreas } from './use-starting-areas';
+import AccessDetailsView from './AccessDetailsView';
+import type { AccessPreference } from './access-details';
 import EmailWalk from './EmailWalk';
 import { plannedEmailWalk } from './walk-email';
 
@@ -32,6 +34,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const startingAreas = useStartingAreas();
   const [radius, setRadius] = useState(2);
   const [maxStops, setMaxStops] = useState(6);
+  const [accessPreference, setAccessPreference] = useState<AccessPreference>('any');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
   const [catalogueNotice, setCatalogueNotice] = useState('');
@@ -87,7 +90,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
       const catalogue = await loadPublicCatalogue(controller.signal);
       if (id !== run.current) return;
       setCatalogueNotice(catalogue.notice ?? '');
-      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? themes : 'All', radiusKm: radius, maxStops }, controller.signal, catalogue.attractions);
+      const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? themes : 'All', radiusKm: radius, maxStops, accessPreference }, controller.signal, catalogue.attractions);
       if (id !== run.current) return;
       setPlan(result); setStatus('ready');
     } catch (e: any) {
@@ -188,6 +191,13 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               {[1, 2, 3, 4, 5, 6].map((n) => <button key={n} className={`chip${maxStops === n ? ' active' : ''}`} aria-pressed={maxStops === n} onClick={() => change(() => setMaxStops(n))} data-testid={`button-stops-${n}`}>{n}</button>)}
             </div>
           </div>
+          <div>
+            <label className="chip-row" htmlFor="planner-step-free" style={{ alignItems: 'center', gap: 8 }}>
+              <input id="planner-step-free" type="checkbox" checked={accessPreference === 'step-free'} onChange={(e) => change(() => setAccessPreference(e.target.checked ? 'step-free' : 'any'))} data-testid="checkbox-step-free" />
+              <span className="field-label" style={{ margin: 0 }}>Only stops with a recorded step-free entrance</span>
+            </label>
+            <p className="planner-note" data-testid="text-access-filter-note">This filter only uses entrance information recorded for each attraction. It does not assess the paths between sights and is not a promise of an accessible route.</p>
+          </div>
           <div className="planner-actions">
             <button className="button-primary" disabled={!ready || busy} onClick={go} data-testid="button-plan-route">
               {start === 'gps' ? <LocateFixed size={16} /> : <Navigation size={16} />}
@@ -223,7 +233,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
             {plan.stops.map((s, i) => (
               <article className="plan-stop" key={s.id} data-testid={`stop-plan-${s.id}`}>
                 <div className="stop-num">{String(i + 1).padStart(2, '0')}</div>
-                <div><h4>{s.name}</h4><small>{s.theme} · {s.place}</small><p>{s.description}</p></div>
+                <div><h4>{s.name}</h4><small>{s.theme} · {s.place}</small><p>{s.description}</p><AccessDetailsView access={s.access} testId={`access-plan-${s.id}`} /></div>
               </article>
             ))}
             {plan.excludedCount > 0 && (

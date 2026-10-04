@@ -21,6 +21,7 @@ try {
   const values = attractions.map(a => `(${[a.id, a.name, a.description, a.place, a.theme].map(quote).join(', ')}, ${a.lat}, ${a.lon}, true)`).join(',\n');
   const schema = await readFile(resolve('supabase/schema.sql'), 'utf8');
   const categories = await readFile(resolve('supabase/categories.sql'), 'utf8');
+  const accessDetails = await readFile(resolve('supabase/access-details.sql'), 'utf8');
   const walkSchema = await readFile(resolve('supabase/curated-walks.sql'), 'utf8');
   const startingAreas = await readFile(resolve('supabase/starting-areas.sql'), 'utf8');
   const walkValues = tours.map(t => `(${[t.id, t.title, t.subtitle, t.theme].map(quote).join(', ')}, ${quote(JSON.stringify(t.stops))}::jsonb, ${t.distanceKm}, ${t.minutes}, true)`).join(',\n');
@@ -53,7 +54,8 @@ commit;
 notify pgrst, 'reload schema';
 `;
   await mkdir(resolve('public'), { recursive: true });
-  await writeFile(resolve('public/setup.sql'), schema + '\n' + categories + '\n' + startingAreas + '\n' + walkSchema + walkSeed + seed);
+  await writeFile(resolve('public/setup.sql'), schema + '\n' + accessDetails + '\n' + categories + '\n' + startingAreas + '\n' + walkSchema + walkSeed + seed);
+  await writeFile(resolve('public/access-details-upgrade.sql'), 'begin;\n' + accessDetails + "\ncommit;\nnotify pgrst, 'reload schema';\n");
   await writeFile(resolve('public/starting-areas-upgrade.sql'), 'begin;\n' + startingAreas + "\ncommit;\nnotify pgrst, 'reload schema';\n");
   await writeFile(resolve('public/grant-admin.sql'), await readFile(resolve('supabase/grant-admin.sql'), 'utf8'));
   await writeFile(resolve('public/email-delivery-upgrade.sql'), await readFile(resolve('supabase/email-delivery.sql'), 'utf8'));

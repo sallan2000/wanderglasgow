@@ -7,3 +7,4 @@
 - [Leaflet tile retry](leaflet-tile-retry.md) — background tile retries redraw the existing layer; distinguish tile events from map recreation in lifecycle checks.
 - [Rendered fixture isolation](rendered-fixture-isolation.md) — give component suites separate Vite fixtures when the same module needs different fake store contracts.
 - [Walking efficiency](walking-efficiency.md) — keep the visitor’s stop target before minimising distance; an exact stop order does not prove globally shortest street paths.
+- [Access claims](access-claims.md) — owner-provided attraction access does not certify the connecting walking route; unknown information is not suitable information.

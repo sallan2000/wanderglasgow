@@ -1,7 +1,9 @@
+import type { AccessDetails } from './access-details';
 import { tours, type Theme } from './tours';
 
 export type Position = { lat: number; lon: number };
 export type Attraction = Position & {
+  access?: AccessDetails;
   id: string;
   name: string;
   description: string;

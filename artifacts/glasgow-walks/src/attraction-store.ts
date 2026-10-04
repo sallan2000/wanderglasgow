@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { attractions, type Attraction } from './attractions';
 import { DEFAULT_CATEGORIES, type Theme } from './tours';
+import { validateAccessDetails, type AccessState } from './access-details';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -16,6 +17,7 @@ export type AttractionInput = Omit<ManagedAttraction, 'id' | 'updatedAt'>;
 type Row = {
   id: string; name: string; description: string; place: string; theme: Theme;
   latitude: number; longitude: number; published: boolean; updated_at: string;
+  step_free_access?: AccessState; accessible_toilet?: AccessState; seating?: AccessState; access_notes?: string;
 };
 
 export class CatalogueError extends Error {
@@ -23,6 +25,7 @@ export class CatalogueError extends Error {
 }
 const missingSchema = (error: { code?: string }) => ['PGRST205', 'PGRST202', '42P01', '42883'].includes(error.code ?? '');
 function fail(error: { code?: string; message?: string }): never {
+  if (['PGRST204', '42703'].includes(error.code ?? '')) throw new CatalogueError('Access details are not enabled yet. Run access-details-upgrade.sql in your Supabase SQL Editor, then try again.');
   if (missingSchema(error)) throw new CatalogueError('Attraction storage is not set up yet. Run the supplied Supabase setup.sql, then try again.');
   if (error.code === '42501') throw new CatalogueError('Permission denied. This account must be authorised as an attraction administrator.');
   if (error.code === '23505') throw new CatalogueError('An attraction with that name already exists. Edit the existing entry instead.');
@@ -36,7 +39,16 @@ function client() {
 function fromRow(row: Row): ManagedAttraction {
   return { id: row.id, name: row.name, description: row.description, place: row.place,
     theme: row.theme, lat: Number(row.latitude), lon: Number(row.longitude),
-    published: row.published, updatedAt: row.updated_at };
+    published: row.published, updatedAt: row.updated_at, access: accessFromRow(row) };
+}
+
+function accessFromRow(row: Row) {
+  return validateAccessDetails({
+    stepFree: row.step_free_access ?? 'unknown',
+    accessibleToilet: row.accessible_toilet ?? 'unknown',
+    seating: row.seating ?? 'unknown',
+    notes: row.access_notes ?? '',
+  });
 }
 
 export function validateAttraction(input: AttractionInput): AttractionInput {
@@ -50,6 +62,8 @@ export function validateAttraction(input: AttractionInput): AttractionInput {
   if (!Number.isFinite(data.lat) || data.lat < -90 || data.lat > 90 ||
       !Number.isFinite(data.lon) || data.lon < -180 || data.lon > 180) throw new CatalogueError('Enter valid latitude and longitude coordinates, or select a point on the map.');
   if (typeof data.published !== 'boolean') throw new CatalogueError('Choose whether the attraction is published.');
+  try { data.access = validateAccessDetails(input.access); }
+  catch (error) { throw new CatalogueError((error as Error).message); }
   return data;
 }
 
@@ -153,7 +167,9 @@ export function listManagedAttractions() { return readRows(false); }
 export async function saveAttraction(input: AttractionInput, existing?: ManagedAttraction): Promise<ManagedAttraction> {
   const valid = validateAttraction(input);
   const row = { name: valid.name, description: valid.description, place: valid.place, theme: valid.theme,
-    latitude: valid.lat, longitude: valid.lon, published: valid.published };
+    latitude: valid.lat, longitude: valid.lon, published: valid.published,
+    step_free_access: valid.access!.stepFree, accessible_toilet: valid.access!.accessibleToilet,
+    seating: valid.access!.seating, access_notes: valid.access!.notes };
   let query;
   if (existing) {
     let update = client().from('glasgow_attractions').update(row).eq('id', existing.id);

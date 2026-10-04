@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Save, X } from 'lucide-react';
 import { saveAttraction, CatalogueError, type ManagedAttraction } from './attraction-store';
+import { ACCESS_FIELDS, unknownAccess, type AccessState } from './access-details';
 import AdminMap from './AdminMap';
 
 type Theme = ManagedAttraction['theme'];
@@ -18,6 +19,7 @@ export default function AdminEditor({ item, categories, onSaved, onRequestClose,
     name: item?.name ?? '', description: item?.description ?? '', place: item?.place ?? '',
     theme: (item?.theme ?? '') as Theme | '', lat: item ? String(item.lat) : '', lon: item ? String(item.lon) : '',
     published: item?.published ?? true,
+    access: { ...unknownAccess(), ...(item?.access ?? {}) },
   }).current;
   const [f, setF] = useState(init);
   const [busy, setBusy] = useState(false);
@@ -39,6 +41,7 @@ export default function AdminEditor({ item, categories, onSaved, onRequestClose,
   if (!f.theme || !categories.includes(f.theme)) problems.theme = 'Choose the one category that fits best.';
   if (lat === null || !Number.isFinite(lat) || lat < -90 || lat > 90) problems.lat = 'Latitude must be between -90 and 90.';
   if (lon === null || !Number.isFinite(lon) || lon < -180 || lon > 180) problems.lon = 'Longitude must be between -180 and 180.';
+  if (f.access.notes.trim().length > 1500) problems.access = 'Keep access notes under 1,500 characters.';
   const show = (k: string) => tried && problems[k];
 
   const submit = async (e: FormEvent) => {
@@ -47,7 +50,7 @@ export default function AdminEditor({ item, categories, onSaved, onRequestClose,
     if (Object.keys(problems).length || !f.theme || lat === null || lon === null) return setErr('Fix the highlighted fields, then save again.');
     setBusy(true);
     try {
-      const saved = await saveAttraction({ name: f.name, description: f.description, place: f.place, theme: f.theme, lat, lon, published: f.published }, item);
+      const saved = await saveAttraction({ name: f.name, description: f.description, place: f.place, theme: f.theme, lat, lon, published: f.published, access: { ...f.access, notes: f.access.notes.trim() } }, item);
       onSaved(saved, !item);
     } catch (error) {
       if (mounted.current) setErr(error instanceof CatalogueError ? error.message : 'The attraction could not be saved. Try again.');
@@ -91,12 +94,26 @@ export default function AdminEditor({ item, categories, onSaved, onRequestClose,
               {show('lon') && <p className="adm-err">{problems.lon}</p>}</div>
           </div>
         </div>
+        <fieldset className="adm-fieldset" data-testid="group-access">
+          <legend className="adm-lab">Access details (optional)</legend>
+          {ACCESS_FIELDS.map(({ key, label }) => (
+            <div key={key}><label className="adm-lab" htmlFor={`f-access-${key}`}>{label}</label>
+              <select id={`f-access-${key}`} className="adm-in" value={f.access[key]} onChange={(e) => setF((p) => ({ ...p, access: { ...p.access, [key]: e.target.value as AccessState } }))} data-testid={`select-access-${key}`}>
+                <option value="unknown">Unknown</option><option value="yes">Yes</option><option value="no">No</option>
+              </select></div>
+          ))}
+          <div><label className="adm-lab" htmlFor="f-access-notes">Access notes (optional)</label>
+            <textarea id="f-access-notes" className={`adm-in${show('access') ? ' bad' : ''}`} value={f.access.notes} onChange={(e) => setF((p) => ({ ...p, access: { ...p.access, notes: e.target.value } }))} data-testid="input-access-notes" />
+            <p className="adm-hint">{f.access.notes.trim().length.toLocaleString()} / 1,500 characters. Shown to visitors as owner-provided, uncertified information.</p>
+            {show('access') && <p className="adm-err">{problems.access}</p>}</div>
+        </fieldset>
         <button type="button" role="switch" aria-checked={f.published} className="adm-switch" onClick={() => set('published', !f.published)} data-testid="switch-published">
           <span className="adm-track" />
           <span><strong>{f.published ? 'Published' : 'Draft'}</strong>
             <span className="adm-hint" style={{ display: 'block' }}>{f.published ? 'Visible to visitors in the walk planner.' : 'Hidden from the visitor planner until published.'}</span></span>
         </button>
-        <div aria-live="polite">{err && <div className="adm-msg err" role="alert" data-testid="status-save-error">{err}</div>}</div>
+        <div aria-live="polite">{err && <div className="adm-msg err" role="alert" data-testid="status-save-error">{err}
+          {err.includes('access-details-upgrade.sql') && <> <a href={`${import.meta.env.BASE_URL}access-details-upgrade.sql`} download data-testid="link-access-upgrade-sql">Download access-details-upgrade.sql</a></>}</div>}</div>
         <div className="adm-bar">
           <button className="adm-btn pri" disabled={busy || !dirty} data-testid="button-save-attraction"><Save size={15} /> {busy ? 'Saving…' : item ? 'Save changes' : 'Add attraction'}</button>
           <button type="button" className="adm-btn" onClick={onRequestClose} data-testid="button-cancel-editor">{dirty ? 'Discard' : 'Close'}</button>
