@@ -4,6 +4,18 @@ test.beforeEach(async ({ page }) => {
   // No live Supabase, routes, CDN resources or map tiles are allowed.
   await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
 });
+async function holdStaleListResponse(page, label) {
+  await page.evaluate(label => window.areaFixture.holdNextListResponse(label), label);
+  // The delete dialog covers the enabled refresh button; dispatch directly on it.
+  await page.getByTestId('button-refresh-starting-areas').evaluate(button => button.click());
+  await expect(page.getByTestId('status-starting-areas-loading')).toBeVisible();
+  await page.evaluate(label => window.areaFixture.waitForListResponse(label), label);
+}
+async function releaseStaleListResponse(page, label) {
+  await page.evaluate(label => window.areaFixture.releaseListResponse(label), label);
+  await expect.poll(() => page.evaluate(label => window.areaFixture.listReadSettled.includes(label), label)).toBe(true);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
 test('admin creates, renames, repositions, retries and deletes an area; visitor uses its saved origin', async ({ page }) => {
   await page.goto(path);
   await expect(page.getByTestId('row-starting-area-centre')).toBeVisible();
@@ -47,6 +59,75 @@ test('admin creates, renames, repositions, retries and deletes an area; visitor 
   await page.getByTestId('button-mode-nearby').click();
   await expect(page.getByTestId(`button-start-${id}`)).toHaveCount(0);
   await expect(page.getByTestId('button-start-gps')).toBeVisible();
+});
+test('a late pre-add list response cannot hide a successfully added starting area', async ({ page }) => {
+  await page.goto(path);
+  await expect(page.getByTestId('row-starting-area-centre')).toBeVisible();
+  await page.getByTestId('button-add-starting-area').click();
+  await page.getByTestId('input-starting-area-name').fill('Station square');
+  await page.getByTestId('input-starting-area-lat').fill('55.859');
+  await page.getByTestId('input-starting-area-lon').fill('-4.258');
+
+  await holdStaleListResponse(page, 'before-add');
+  await page.evaluate(() => window.areaFixture.holdOperation('save'));
+  await page.getByTestId('button-save-starting-area').click();
+  await expect(page.getByTestId('button-save-starting-area')).toBeDisabled();
+
+  await page.evaluate(() => window.areaFixture.releaseOperation('save'));
+  await expect(page.getByTestId('status-starting-area-note')).toContainText('Station square was added');
+  const id = await page.evaluate(() => window.areaFixture.rows.find(row => row.name === 'Station square').id);
+  const row = page.getByTestId(`row-starting-area-${id}`);
+  await expect(row).toContainText('Station square');
+  await expect(row).toContainText('55.85900, -4.25800');
+  expect(await page.evaluate(() => window.areaFixture.listReadSettled.includes('before-add'))).toBe(false);
+
+  await releaseStaleListResponse(page, 'before-add');
+  await expect(row).toContainText('Station square');
+  await expect(row).toContainText('55.85900, -4.25800');
+  await expect(page.getByTestId('status-starting-area-note')).toContainText('Station square was added');
+});
+test('a late pre-edit list response cannot restore an old name or coordinate', async ({ page }) => {
+  await page.goto(path);
+  await page.getByTestId('button-edit-starting-area-centre').click();
+  await page.getByTestId('input-starting-area-name').fill('Central station');
+  await page.getByTestId('input-starting-area-lat').fill('55.8595');
+  await page.getByTestId('input-starting-area-lon').fill('-4.258');
+
+  await holdStaleListResponse(page, 'before-edit');
+  await page.evaluate(() => window.areaFixture.holdOperation('save'));
+  await page.getByTestId('button-save-starting-area').click();
+  await expect(page.getByTestId('button-save-starting-area')).toBeDisabled();
+
+  await page.evaluate(() => window.areaFixture.releaseOperation('save'));
+  await expect(page.getByTestId('status-starting-area-note')).toContainText('Central station was updated');
+  const row = page.getByTestId('row-starting-area-centre');
+  await expect(row).toContainText('Central station');
+  await expect(row).toContainText('55.85950, -4.25800');
+  expect(await page.evaluate(() => window.areaFixture.listReadSettled.includes('before-edit'))).toBe(false);
+
+  await releaseStaleListResponse(page, 'before-edit');
+  await expect(row).toContainText('Central station');
+  await expect(row).not.toContainText('City centre');
+  await expect(row).toContainText('55.85950, -4.25800');
+});
+test('a late pre-delete list response cannot restore a deleted starting area', async ({ page }) => {
+  await page.goto(path);
+  const row = page.getByTestId('row-starting-area-centre');
+  await expect(row).toBeVisible();
+  await page.getByTestId('button-delete-starting-area-centre').click();
+  await holdStaleListResponse(page, 'before-delete');
+  await page.evaluate(() => window.areaFixture.holdOperation('delete'));
+  await page.getByTestId('button-confirm-delete-starting-area').click();
+  await expect(page.getByTestId('button-confirm-delete-starting-area')).toBeDisabled();
+
+  await page.evaluate(() => window.areaFixture.releaseOperation('delete'));
+  await expect(row).toBeHidden();
+  await expect(page.getByTestId('status-starting-area-note')).toContainText('City centre was deleted');
+  expect(await page.evaluate(() => window.areaFixture.listReadSettled.includes('before-delete'))).toBe(false);
+
+  await releaseStaleListResponse(page, 'before-delete');
+  await expect(row).toBeHidden();
+  await expect(page.getByTestId('status-starting-area-note')).toContainText('City centre was deleted');
 });
 test('visitor keeps empty/error states honest, can retry, and never requests GPS for a removed saved point', async ({ page }) => {
   await page.goto(path + '?view=visitor');

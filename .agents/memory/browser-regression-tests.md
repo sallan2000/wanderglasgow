@@ -26,3 +26,9 @@ Use explicitly held and released fixture requests when testing transient pending
 **Why:** Browser scheduling can let a timed fake request finish before the test observes its disabled controls or status message.
 
 **How to apply:** Add a controllable hold for the operation under test, assert the UI remains protected while held, then release it and verify the completed outcome.
+
+For stale-response regressions, begin the read against the old state and capture its snapshot before the mutation; release that response only after the mutation succeeds. Keep the fixture indifferent to cancellation when the client-side freshness guard is the behavior under test.
+
+**Why:** Launching a delayed read after a mutation does not model an older request, and changing disabled controls during a pending mutation can bypass the real interaction path.
+
+**How to apply:** Start the read through an enabled UI action while the form is open, hold its old result, complete the mutation, and then release and assert the old result is ignored.

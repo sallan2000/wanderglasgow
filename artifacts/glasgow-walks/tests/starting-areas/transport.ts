@@ -6,28 +6,46 @@ const rows: Row[] = saved ? JSON.parse(saved) : [
   { id: 'centre', name: 'City centre', latitude: 55.8609, longitude: -4.2514, updated_at: 'seed' },
 ];
 const held = new Map<string, () => void>();
+const heldListReads = new Map<string, () => void>();
+const listReadWaiters = new Map<string, () => void>();
 export const state = {
   rows,
   fail: '',
   writes: 0,
   origin: null as { lat: number; lon: number } | null,
   hold: '',
+  nextListHold: '',
+  listReadStarted: [] as string[],
+  listReadSettled: [] as string[],
   holdOperation(operation: string) { this.hold = operation; },
   releaseOperation(operation: string) {
     if (this.hold === operation) this.hold = '';
     held.get(operation)?.();
     held.delete(operation);
   },
+  holdNextListResponse(label: string) { this.nextListHold = label; },
+  waitForListResponse(label: string) {
+    if (this.listReadStarted.includes(label)) return Promise.resolve();
+    return new Promise<void>(resolve => listReadWaiters.set(label, resolve));
+  },
+  releaseListResponse(label: string) {
+    const release = heldListReads.get(label);
+    if (!release) throw new Error(`No held list response named ${label}.`);
+    heldListReads.delete(label);
+    release();
+  },
 };
 Object.assign(window, { areaFixture: state });
 export const supabase = {
   from() {
     let operation = 'read';
+    let heldReadLabel = '';
     let payload: Partial<Row> = {};
     let single = false;
     const filters: [keyof Row, unknown][] = [];
     const q: any = {
       select() { return q; }, order() { return q; }, range() { return q; },
+      // Intentionally ignore AbortSignal so stale-response guards are tested independently.
       abortSignal() { return q; },
       eq(field: keyof Row, value: unknown) { filters.push([field, value]); return q; },
       single() { single = true; return q; }, maybeSingle() { single = true; return q; },
@@ -40,12 +58,24 @@ export const supabase = {
         if (state.hold === operation) {
           await new Promise<void>(release => held.set(operation, release));
         }
+        let readSnapshot: Row[] | null = null;
+        if (operation === 'read' && state.nextListHold) {
+          heldReadLabel = state.nextListHold;
+          state.nextListHold = '';
+          readSnapshot = structuredClone(state.rows);
+          await new Promise<void>(release => {
+            heldListReads.set(heldReadLabel, release);
+            state.listReadStarted.push(heldReadLabel);
+            listReadWaiters.get(heldReadLabel)?.();
+            listReadWaiters.delete(heldReadLabel);
+          });
+        }
         if (state.fail === operation || (state.fail === 'setup' && operation === 'read')) {
           const code = state.fail === 'setup' ? 'PGRST205' : 'NETWORK';
           state.fail = ''; return resolve({ data: null, error: { code } });
         }
-        const matches = () => state.rows.filter(row => filters.every(([field, value]) => row[field] === value));
-        let result = matches();
+        const matches = (source: Row[]) => source.filter(row => filters.every(([field, value]) => row[field] === value));
+        let result = matches(readSnapshot ?? state.rows);
         if (operation === 'save') {
           if (state.rows.some(row => row.name.toLowerCase() === payload.name?.toLowerCase() && row.id !== filters.find(f => f[0] === 'id')?.[1])) {
             return resolve({ data: null, error: { code: '23505' } });
@@ -61,6 +91,7 @@ export const supabase = {
         }
         if (operation !== 'read') sessionStorage.setItem(key, JSON.stringify(state.rows));
         resolve({ data: single ? result[0] ?? null : structuredClone(result), error: null });
+        if (heldReadLabel) state.listReadSettled.push(heldReadLabel);
       },
     };
     return q;
