@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { supabase } from './attraction-store';
 
@@ -69,8 +69,10 @@ export function SignIn({ notice }: { notice?: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
+  const requestInFlight = useRef(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (requestInFlight.current) return;
     if (!supabase) {
       setErr(mode === 'in'
         ? 'Administrator sign-in is temporarily unavailable. Please try again shortly.'
@@ -79,6 +81,7 @@ export function SignIn({ notice }: { notice?: string }) {
       return;
     }
     if (!email.trim()) return setErr('Enter your email address.');
+    requestInFlight.current = true;
     setBusy(true); setErr(''); setOk('');
     try {
       if (mode === 'in') {
@@ -97,6 +100,7 @@ export function SignIn({ notice }: { notice?: string }) {
       }
     } finally {
       if (mode === 'in') setPw('');
+      requestInFlight.current = false;
       setBusy(false);
     }
   };

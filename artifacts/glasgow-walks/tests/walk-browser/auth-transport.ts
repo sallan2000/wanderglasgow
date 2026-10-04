@@ -32,6 +32,8 @@ const adminAccess = new Map([[testSession.user.id, true]]);
 const authListeners = new Set<AuthListener>();
 const heldAdminChecks = new Set<string>();
 const pendingAdminChecks = new Map<string, () => void>();
+let signInHeld = false;
+let pendingSignIn: (() => void) | undefined;
 
 export const authFixture = {
   resetRequests: [] as AuthCall[],
@@ -42,6 +44,14 @@ export const authFixture = {
   adminChecks: [] as boolean[],
   adminCheckUserIds: [] as string[],
   adminCheckResults: [] as boolean[],
+  holdSignIn() {
+    signInHeld = true;
+  },
+  releaseSignIn() {
+    signInHeld = false;
+    pendingSignIn?.();
+    pendingSignIn = undefined;
+  },
   holdAdminCheck(userId: string) {
     heldAdminChecks.add(userId);
   },
@@ -119,6 +129,11 @@ const fixtureSupabase = {
     },
     async signInWithPassword({ email }: { email: string; password: string }) {
       authFixture.signInRequests.push({ email });
+      if (signInHeld) {
+        await new Promise<void>((resolve) => {
+          pendingSignIn = resolve;
+        });
+      }
       if (params().get('signin') === 'throw-once' && authFixture.signInRequests.length === 1) {
         throw new Error('Network request failed');
       }

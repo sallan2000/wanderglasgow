@@ -71,6 +71,49 @@ test('admin auth validates a missing email and clears a rejected sign-in passwor
   expect(supabaseRequests).toEqual([]);
 });
 
+test('admin auth blocks repeated sign-in submissions while the request is pending', async ({ page }) => {
+  const supabaseRequests = [];
+  page.on('request', (request) => {
+    if (/supabase/i.test(request.url())) supabaseRequests.push(request.url());
+  });
+
+  await page.goto('/tests/walk-browser/auth.html');
+  await expectCleanAuthScreen(page, 'Sign in');
+  await page.evaluate(() => window.authFixture.holdSignIn());
+
+  const email = page.getByTestId('input-email');
+  const password = page.getByTestId('input-password');
+  const submit = page.getByTestId('button-submit-auth');
+  await email.fill('admin@example.invalid');
+  await password.fill('fixture-password');
+  await submit.click();
+
+  await expect(submit).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toEqual([
+    { email: 'admin@example.invalid' },
+  ]);
+
+  await page.evaluate(() => {
+    const form = document.querySelector('[data-testid="button-submit-auth"]')?.closest('form');
+    if (!form) throw new Error('Sign-in form was not found');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
+    }
+  });
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toHaveLength(1);
+  expect(supabaseRequests).toEqual([]);
+
+  await page.evaluate(() => window.authFixture.releaseSignIn());
+  await expect(submit).toBeEnabled();
+  await expect(password).toHaveValue('');
+
+  await password.fill('retry-password');
+  await submit.click();
+  await expect(submit).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => window.authFixture.signInRequests)).toHaveLength(2);
+  expect(supabaseRequests).toEqual([]);
+});
+
 test('admin auth explains when its client is unavailable and allows a later retry', async ({ page }) => {
   const supabaseRequests = [];
   page.on('request', (request) => {
