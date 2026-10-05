@@ -14,6 +14,7 @@
     "test:itinerary": "node scripts/test-itinerary-export.mjs",
     "test:itinerary:browser": "tsc -p tsconfig.email-browser.json --noEmit && playwright test --config playwright.itinerary.config.mjs",
     "test:access:browser": "tsc -p tsconfig.access-browser.json --noEmit && playwright test --config playwright.access.config.mjs",
+    "test:category:browser": "tsc -p tsconfig.category-browser.json --noEmit && playwright test --config playwright.category-removal.config.mjs",
     "test:email": "tsc -p tsconfig.email.json --noEmit && node scripts/test-walk-email.mjs",
     "test:email:browser": "tsc -p tsconfig.email-browser.json --noEmit && playwright test --config playwright.email.config.mjs",
     "test:starting-areas": "node scripts/test-starting-areas.mjs",

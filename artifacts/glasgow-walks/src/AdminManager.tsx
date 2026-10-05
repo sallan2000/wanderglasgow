@@ -76,6 +76,16 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
     setCategoryError(''); setCategoryNeedsSetup(false);
     setCategories(current => sortCategoryNames([...current, name]));
   };
+  const categoryRemoved = (name: string, replacement: string) => {
+    if (!alive.current) return;
+    categorySeq.current++;
+    setCategoriesLoading(false);
+    setCategoryError('');
+    setCategoryNeedsSetup(false);
+    setCategories(current => current.filter(category => category !== name));
+    setItems(current => current.map(item => item.theme === name ? { ...item, theme: replacement } : item));
+    setTheme(current => current === name ? 'All' : current);
+  };
   const categoryOptions = useMemo(() => sortCategoryNames([...categories, ...items.map(item => item.theme)]), [categories, items]);
 
   useEffect(() => {
@@ -146,7 +156,8 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
         </div>
       </div>
       {categoriesOpen && <AdminCategories categories={categories} loading={categoriesLoading} error={categoryError}
-        needsSetup={categoryNeedsSetup} onAdded={categoryAdded} onRefresh={() => void loadCategories()} onClose={() => setCategoriesOpen(false)} />}
+        needsSetup={categoryNeedsSetup} onAdded={categoryAdded} onRemoved={categoryRemoved}
+        onRefresh={() => void loadCategories()} onClose={() => setCategoriesOpen(false)} />}
       {startOpen && <AdminStartingAreas onClose={() => setStartOpen(false)} onDirty={setStartDirty} onNavigationState={onStartingAreaState} />}
       <div className="adm-tools">
         <input className="adm-in" type="search" placeholder="Search by name or address" aria-label="Search attractions" value={q} onChange={(e) => setQ(e.target.value)} data-testid="input-search" />

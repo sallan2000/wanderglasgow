@@ -30,6 +30,8 @@ select p.proname as function_name, p.prosecdef as security_definer,
        has_function_privilege('anon', p.oid, 'execute') as anon_can_execute,
        has_function_privilege('authenticated', p.oid, 'execute') as authenticated_can_execute
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public' and p.proname in ('is_attraction_admin', 'claim_walk_email_send');
+where n.nspname = 'public' and p.proname in (
+  'is_attraction_admin', 'claim_walk_email_send',
+  'list_attraction_category_usage', 'remove_attraction_category');
 
 commit;

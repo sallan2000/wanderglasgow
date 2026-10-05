@@ -143,7 +143,11 @@ If the original four-category database is already installed, download `categorie
 
 After upgrading, open **Manage categories**, enter a name of 2–40 characters, and click **Add category**. Category names are unique regardless of capitalisation; `All` is reserved for the unfiltered view. New categories persist in Supabase and appear immediately in the current admin session's editor and filter. Visitor choices refresh on page load and when returning focus to the page. An empty category can be selected, but planning reports that no published matching attractions are available.
 
-Only approved administrators can add categories. Public visitors and ordinary signed-in users can read the list but cannot modify it. Each attraction's category is enforced by a foreign key, not a hard-coded four-value check. This interface adds categories; it does not rename or delete existing categories.
+Only approved administrators can add and remove categories. Public visitors and ordinary signed-in users can read the list but cannot modify it. Each attraction and curated walk category is enforced by a foreign key, not a hard-coded four-value check.
+
+**Manage categories** shows how many attractions and curated walks use each category. To remove one, choose **Remove**, select a replacement and confirm. One administrator-only database transaction moves those records to the replacement and removes the old category; records, stop details and access notes are preserved. The operation stops if the use counts change after confirmation, so refresh and review the new counts before trying again. At least one other category must remain.
+
+Existing Supabase installations must run the current `categories-upgrade.sql` in the Supabase SQL Editor to enable the removal controls. The app links to this upgrade if its secure category-management functions are missing. Fresh installations already include them. The ordinary signed-in client cannot delete a category or make the reassignment directly.
 
 Both **Pick categories** and **Explore nearby** load the published attraction catalogue anew when a walk is requested. Pick categories accepts one or more choices and excludes all non-selected categories. Draft attractions are excluded even if an administrator is browsing the visitor site. Search choices are 1, 2, 3, 4, 5 and “5 km+”; the latter searches up to 10 km on foot with a 15 km total-walk limit, while other choices retain a 5 km total-walk limit.
 
@@ -218,6 +222,7 @@ From the repository root, run `pnpm --filter @workspace/glasgow-walks run <scrip
 | `test:itinerary` | Snapshot copying, escaping, validation, curated/calculated distinctions, access unknowns, self-contained documents and long stories without network calls. |
 | `test:itinerary:browser` | Both visitor exports, standalone reopening offline, security policy and print lifecycle, multi-page PDF output, malicious prose, keyboard/mobile controls and no export requests/storage. |
 | `test:admin` | Real isolated PostgreSQL permissions, drafts, validation, conflicts, safe upgrades/seeds, revocation and the read-only audit script. |
+| `test:category:browser` | Category counts, explicit confirmation, replacement selection, focus restoration, stale-count refusal and upgrade guidance through the rendered admin screen. |
 | `test:walks` | Curated-walk validation and storage/measurement request contracts. |
 | `test:starting-areas` | Starting-area validation and storage request contracts. |
 | `test:email` | Email handler, validation, fake providers, retry behaviour and isolated PostgreSQL rate-limiter permissions. |

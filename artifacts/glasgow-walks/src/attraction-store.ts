@@ -88,6 +88,72 @@ export class CategorySetupError extends CatalogueError {
   }
 }
 
+export class CategoryManagementSetupError extends CatalogueError {
+  constructor() {
+    super('Category removal is not enabled in Supabase yet. Run the updated categories-upgrade.sql in the Supabase SQL Editor, then refresh.');
+    this.name = 'CategoryManagementSetupError';
+  }
+}
+
+export type CategoryUsage = {
+  category: string;
+  attractions: number;
+  walks: number;
+};
+
+export type CategoryRemovalResult = {
+  attractionsMoved: number;
+  walksMoved: number;
+};
+
+function categoryRpcError(error: { code?: string; message?: string }): never {
+  if (['PGRST202', 'PGRST203', '42883'].includes(error.code ?? '')) throw new CategoryManagementSetupError();
+  if (error.code === '42501') throw new CatalogueError('Only an authorised administrator can manage categories.');
+  if (error.code === '40001') throw new CatalogueError('Category usage changed while you were reviewing it. Refresh the counts and confirm again.');
+  if (error.code === 'P0002') throw new CatalogueError('A selected category no longer exists. Refresh and try again.');
+  if (error.code === '22023') throw new CatalogueError('Choose an existing category and a different replacement.');
+  throw new CatalogueError('Category usage could not be updated. Refresh the category list and try again.');
+}
+
+export async function listAttractionCategoryUsage(): Promise<CategoryUsage[]> {
+  const { data, error } = await client().rpc('list_attraction_category_usage');
+  if (error) categoryRpcError(error);
+  if (!Array.isArray(data) || data.some((row: any) =>
+    typeof row.category_name !== 'string' ||
+    !Number.isSafeInteger(Number(row.attraction_count)) || Number(row.attraction_count) < 0 ||
+    !Number.isSafeInteger(Number(row.curated_walk_count)) || Number(row.curated_walk_count) < 0)) {
+    throw new CatalogueError('Category usage could not be checked. Refresh and try again.');
+  }
+  return data.map((row: any) => ({
+    category: row.category_name,
+    attractions: Number(row.attraction_count),
+    walks: Number(row.curated_walk_count),
+  }));
+}
+
+export async function removeAttractionCategory(
+  category: string,
+  replacement: string,
+  expectedAttractions: number,
+  expectedWalks: number,
+): Promise<CategoryRemovalResult> {
+  const { data, error } = await client().rpc('remove_attraction_category', {
+    p_category_name: category,
+    p_replacement_name: replacement,
+    p_expected_attractions: expectedAttractions,
+    p_expected_curated_walks: expectedWalks,
+  });
+  if (error) categoryRpcError(error);
+  const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+  const attractionsMoved = Number(row?.attractions_moved);
+  const walksMoved = Number(row?.curated_walks_moved);
+  if (!Number.isSafeInteger(attractionsMoved) || attractionsMoved < 0 ||
+    !Number.isSafeInteger(walksMoved) || walksMoved < 0) {
+    throw new CatalogueError('The category could not be removed. Refresh the category list and try again.');
+  }
+  return { attractionsMoved, walksMoved };
+}
+
 export async function listAttractionCategories(signal?: AbortSignal): Promise<string[]> {
   const names: string[] = [];
   for (let offset = 0; ; offset += 1000) {

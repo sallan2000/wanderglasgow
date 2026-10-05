@@ -184,6 +184,47 @@ try {
   await as('anon');
   check((await rows("select name from public.glasgow_attraction_categories where name='Food & drink'")).length === 1, 'Custom categories visible to a separate public session');
   check((await rows("select theme from public.glasgow_attractions where id='custom-category-stop'"))[0].theme === 'Food & drink', 'Published attractions retain their new category for visitors');
+  await denied("select * from public.list_attraction_category_usage()", '42501');
+  await denied("select * from public.remove_attraction_category('Food & drink','History',1,1)", '42501');
+  await as('authenticated', admin);
+  await denied("delete from public.glasgow_attraction_categories where name='Food & drink'", '42501');
+  await db.query(
+    "insert into public.glasgow_curated_walks (id,title,subtitle,theme,stops,distance_km,minutes,published) values ('food-category-walk','Food category walk','A preserved walk with a replacement category.','Food & drink',$1::jsonb,2.4,32,true)",
+    [JSON.stringify(snapshotStops)],
+  );
+  const preview = await rows("select * from public.list_attraction_category_usage() where category_name='Food & drink'");
+  assert.deepEqual(preview, [{ category_name: 'Food & drink', attraction_count: 1, curated_walk_count: 1 }]); checks++;
+  await as('authenticated', ordinary);
+  await denied("select * from public.list_attraction_category_usage()", '42501');
+  await denied("select * from public.remove_attraction_category('Food & drink','History',1,1)", '42501');
+  await as('authenticated', admin);
+  await db.exec("insert into public.glasgow_attractions (id,name,description,theme,latitude,longitude,published) values ('late-food-stop','Another cafe','A sufficiently long description for the concurrent addition.','Food & drink',55.861,-4.252,true)");
+  await assert.rejects(
+    db.query("select * from public.remove_attraction_category('Food & drink','History',1,1)"),
+    error => error.code === '40001',
+  ); checks++;
+  check((await rows("select count(*)::integer as n from public.glasgow_attractions where theme='Food & drink'"))[0].n === 2,
+    'Changed usage makes removal stop before moving any attractions');
+  const updatedPreview = await rows("select * from public.list_attraction_category_usage() where category_name='Food & drink'");
+  assert.deepEqual(updatedPreview, [{ category_name: 'Food & drink', attraction_count: 2, curated_walk_count: 1 }]); checks++;
+  await assert.rejects(
+    db.query("select * from public.remove_attraction_category('Food & drink','Missing',2,1)"),
+    error => error.code === 'P0002',
+  ); checks++;
+  const removed = await rows("select * from public.remove_attraction_category('Food & drink','History',2,1)");
+  assert.deepEqual(removed, [{ attractions_moved: 2, curated_walks_moved: 1 }]); checks++;
+  check((await rows("select count(*)::integer as n from public.glasgow_attraction_categories where name='Food & drink'"))[0].n === 0,
+    'Category removal deletes only the chosen category');
+  check((await rows("select count(*)::integer as n from public.glasgow_attractions where theme='Food & drink'"))[0].n === 0 &&
+    (await rows("select count(*)::integer as n from public.glasgow_curated_walks where theme='Food & drink'"))[0].n === 0,
+    'The transaction reassigns all referencing attractions and curated walks');
+  check((await rows("select description,latitude,longitude,step_free_access,accessible_toilet,seating,access_notes from public.glasgow_attractions where id='custom-category-stop'"))[0].description === 'A real description for this cafe.',
+    'Reassignment preserves the attraction record and its access details');
+  check((await rows("select stops,distance_km,minutes from public.glasgow_curated_walks where id='food-category-walk'"))[0].stops.length === 2,
+    'Reassignment preserves curated walk stops and totals');
+  await as('anon');
+  check((await rows("select * from public.glasgow_attraction_categories where name='Food & drink'")).length === 0,
+    'Visitors can confirm the removed category is no longer available');
   await as('authenticated', admin);
   await db.exec(insert);
   const initial = (await rows("select * from public.glasgow_attractions where id = 'test-admin-stop'"))[0];
@@ -213,7 +254,7 @@ try {
   await db.exec('reset role');
   await db.exec(setup);
   check((await rows("select id from public.glasgow_attractions where id='celtic-park'")).length === 0, 'Re-running setup never resurrects deleted seed entries');
-  check((await rows("select theme from public.glasgow_attractions where id='custom-category-stop'"))[0].theme === 'Food & drink', 'Re-running setup preserves custom categories and their attractions');
+  check((await rows("select theme from public.glasgow_attractions where id='custom-category-stop'"))[0].theme === 'History', 'Re-running setup preserves category reassignment');
   await db.exec(walkUpgrade);
   check((await rows("select id from public.glasgow_curated_walks where id='art-mile'")).length === 0, 'Re-running upgrades never resurrects deleted original walks');
   check((await rows("select subtitle from public.glasgow_curated_walks where id='kelvingrove-culture'"))[0].subtitle.startsWith('An edited'), 'Re-running upgrades preserves edits to original walks');

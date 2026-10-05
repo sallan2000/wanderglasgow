@@ -80,6 +80,13 @@ textarea.adm-in{padding:12px 14px;min-height:130px;resize:vertical;line-height:1
 .adm-category-panel>p{font-size:14px;line-height:1.6;color:var(--ink-soft)}
 .adm-category-list{display:flex;gap:8px;flex-wrap:wrap;list-style:none;padding:0;margin:20px 0}
 .adm-category-list li{border:1px solid var(--line);padding:8px 12px;border-radius:24px;font-size:13px;overflow-wrap:anywhere;max-width:100%}
+.adm-category-list li.adm-category-item{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;border-radius:12px;padding:10px 12px}
+.adm-category-usage{font-size:12px;color:var(--ink-soft)}
+.adm-category-list .adm-category-item .adm-btn{padding:7px 10px;font-size:12px}
+.category-remove-dialog{display:grid;gap:12px}
+.category-remove-dialog h2,.category-remove-dialog p{margin-bottom:0}
+.category-remove-dialog .adm-dlg-acts{margin-top:8px}
+.category-remove-dialog .adm-msg{margin:0}
 .adm-category-form{display:grid;grid-template-columns:1fr auto;align-items:center;gap:14px;margin-bottom:20px}
 .adm-category-upgrade{margin:10px 0 0;line-height:1.6}
 .adm-category-upgrade a{text-decoration:underline}
