@@ -17,6 +17,7 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
   const [q, setQ] = useState('');
   const [theme, setTheme] = useState('All');
   const [status, setStatus] = useState('All');
+  const [access, setAccess] = useState('All');
   const [editing, setEditing] = useState<Editing>(null);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState<(() => void) | null>(null);
@@ -113,7 +114,7 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
     // A late save can update the list, but must never dismiss a different editor.
     if (editing?.key === currentEditing.current?.key) {
       setDirty(false); setEditing(null);
-      setQ(''); setTheme('All'); setStatus('All');
+      setQ(''); setTheme('All'); setStatus('All'); setAccess('All');
     }
     setFresh(saved.id);
     setNote(`${saved.name} was ${wasNew ? 'added' : 'updated'} and is ${saved.published ? 'live for visitors' : 'saved as a draft'}.`);
@@ -138,8 +139,8 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     return items.filter((i) => (theme === 'All' || i.theme === theme) && (status === 'All' || (status === 'Published') === i.published)
-      && (!s || i.name.toLowerCase().includes(s) || i.place.toLowerCase().includes(s)));
-  }, [items, q, theme, status]);
+      && (access === 'All' || i.access?.stepFree === access) && (!s || i.name.toLowerCase().includes(s) || i.place.toLowerCase().includes(s)));
+  }, [items, q, theme, status, access]);
 
   return (
     <main className="adm-main">
@@ -167,6 +168,9 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
         <select className="adm-in" aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="select-status-filter">
           {['All', 'Published', 'Draft'].map((t) => <option key={t}>{t}</option>)}
         </select>
+        <select className="adm-in" aria-label="Filter by step-free access" value={access} onChange={(e) => setAccess(e.target.value)} data-testid="select-access-filter">
+          {['All', 'Yes', 'No', 'Unknown'].map((t) => <option key={t}>{t}</option>)}
+        </select>
       </div>
       <div aria-live="polite">{note && <div className="adm-msg ok" data-testid="status-admin-note">{note}</div>}</div>
       {error && <div className="adm-msg err" role="alert" data-testid="status-list-error">{error} <button className="adm-btn link" onClick={() => void load()} data-testid="button-retry-list">Try again</button></div>}
@@ -176,7 +180,7 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
           <div className="adm-empty" data-testid="status-empty">
             <h3>{items.length ? 'Nothing matches those filters' : 'No attractions yet'}</h3>
             <p>{items.length ? 'Try a different search or clear the filters.' : 'Add the first place visitors can discover on a walk.'}</p>
-            {items.length ? <button className="adm-btn" onClick={() => { setQ(''); setTheme('All'); setStatus('All'); }} data-testid="button-clear-filters">Clear filters</button>
+            {items.length ? <button className="adm-btn" onClick={() => { setQ(''); setTheme('All'); setStatus('All'); setAccess('All'); }} data-testid="button-clear-filters">Clear filters</button>
               : <button className="adm-btn pri" onClick={() => open()} data-testid="button-add-first">Add attraction</button>}
           </div>
         ) : (
@@ -186,6 +190,7 @@ export default function AdminManager({ onSignOut, onStartingAreaState }: Props) 
                 <div>
                   <div className="adm-kick"><span>{i.theme}</span><span className={`adm-badge${i.published ? '' : ' draft'}`}>{i.published ? 'Published' : 'Draft'}</span></div>
                   <h3>{i.name}</h3><p>{i.place || 'No address given'}</p>
+                  {i.access?.stepFree === 'yes' && <span className="adm-hint" data-testid={`access-stepfree-${i.id}`}>Step-free entrance</span>}
                 </div>
                 <div className="adm-acts">
                   <button className="adm-ibtn" onClick={() => open(i)} aria-label={`Edit ${i.name}`} data-testid={`button-edit-${i.id}`}><Pencil size={16} /></button>
