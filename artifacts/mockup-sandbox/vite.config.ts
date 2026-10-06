@@ -27,24 +27,32 @@ if (!basePath) {
   );
 }
 
+const plugins = [
+  mockupPreviewPlugin(),
+  react(),
+  tailwindcss(),
+  runtimeErrorOverlay(),
+];
+
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.REPL_ID !== undefined
+) {
+  try {
+    const { cartographer } = await import("@replit/vite-plugin-cartographer");
+    plugins.push(
+      cartographer({
+        root: path.resolve(import.meta.dirname, ".."),
+      })
+    );
+  } catch {
+    // cartographer unavailable in this environment; skip it.
+  }
+}
+
 export default defineConfig({
   base: basePath,
-  plugins: [
-    mockupPreviewPlugin(),
-    react(),
-    tailwindcss(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, ".."),
-            }),
-          ),
-        ]
-      : []),
-  ],
+  plugins,
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
