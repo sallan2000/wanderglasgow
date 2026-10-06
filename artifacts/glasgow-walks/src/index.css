@@ -432,7 +432,7 @@
 }
 
 @layer base {
-  body { margin: 0; background: #f5f2e9; font-family: var(--app-font-sans); }
+  body { margin: 0; background: var(--paper); font-family: var(--app-font-sans); }
   button { font: inherit; }
 }
 
@@ -591,4 +591,74 @@ button { cursor: pointer; }
  .hero h1{font-size:clamp(46px,15vw,54px)}
  .hero-cta-wide{display:none}.hero-cta-compact{display:inline}
  .hero-actions>.button-primary{width:100%;justify-content:space-between}
+}
+
+/* ---------- dark mode ---------- */
+.dark {
+  /* Design tokens (shift warm palette to dark) */
+  --paper: #1f1c19;
+  --paper-deep: #2a241f;
+  --ink: #ece8df;
+  --ink-soft: #b8b0a3;
+  --orange: #e88268;
+  --orange-strong: #f2a17a;
+  --line: #4a433a;
+  --lime: #5a6b3f;
+
+  /* Custom design-elements that were hardcoded to light values */
+  .theme-button:hover,
+  .theme-button.active {
+    background: #2a241f;
+  }
+  .theme-button.active .theme-name {
+    color: var(--orange-strong);
+  }
+  .mode-card.active {
+    border-color: var(--orange);
+    background: #2a241f;
+  }
+  .tour-card {
+    border: 1px solid #4a433a;
+  }
+  .tour-area {
+    background: #2a241f;
+  }
+  .nearby-result {
+    background: #2a241f;
+  }
+  .geo-message,
+  .planner-msg {
+    background: #201c19;
+    color: #b8b0a3;
+  }
+  .planner-msg.loading {
+    background: #3a342c;
+  }
+  .map-wrap,
+  .plan-map {
+    background: #2a241f;
+  }
+  .nearby-panel {
+    background: var(--lime);
+  }
+  .location-button {
+    background: var(--orange-strong);
+    color: #fff7e8;
+  }
+  .hero-landmark-name {
+    color: var(--ink);
+    background: var(--paper);
+    border-color: var(--line);
+  }
+  .hero-map-tag {
+    color: var(--ink);
+    background: var(--paper);
+    border-color: var(--line);
+  }
+  .hero-map-tag i {
+    color: var(--ink-soft);
+  }
+  .hero-landmark-art {
+    filter: drop-shadow(0 2px 2px var(--ink));
+  }
 }

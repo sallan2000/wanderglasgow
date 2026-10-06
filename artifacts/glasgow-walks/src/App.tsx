@@ -7,6 +7,7 @@ import WalkPlanner from './WalkPlanner';
 import AdminPortal from './AdminPortal';
 import { type Tour, type Theme } from './tours';
 import { useAttractionCategories } from './hooks/use-attraction-categories';
+import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { useCuratedWalks } from './hooks/use-curated-walks';
 import EmailWalk from './EmailWalk';
 import { curatedEmailWalk } from './walk-email';
@@ -116,6 +117,7 @@ function PublicApp() {
           <button onClick={() => { setPlannerEntry({ mode: 'theme' }); document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} data-testid="nav-themes">Explore by category</button>
           <button className="nav-pill" onClick={() => document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })} data-testid="nav-planner">Plan my walk</button>
         </nav>
+        <DarkModeToggle />
       </header>
 
       <section className="hero" id="top">
