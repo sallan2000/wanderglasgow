@@ -48,7 +48,7 @@ type Props = {
   onClose: () => void;
 };
 const stopKey = (s: { name: string; lat: number; lon: number }) => `${s.name.trim().toLowerCase()}|${s.lat}|${s.lon}`;
-const snap = (s: Stop) => ({ name: s.name, place: s.place, lat: s.lat, lon: s.lon, story: s.story });
+const snap = (s: Stop) => ({ name: s.name, place: s.place, lat: s.lat, lon: s.lon, story: s.story, ...(s.access ? { access: { ...s.access } } : {}) });
 
 export default function AdminWalkEditor({ walk, categories, attractions, attractionsLoading, attractionsError, onReloadSources, onSaved, onClose }: Props) {
   const uid = useRef(0);
@@ -115,7 +115,7 @@ export default function AdminWalkEditor({ walk, categories, attractions, attract
   const changeStops = (fn: (s: Row[]) => Row[]) => { setStops(fn); invalidate(); };
   const add = (a: ManagedAttraction) => {
     if (stops.length >= 30 || stops.some(s => stopKey(s) === stopKey(a))) return;
-    changeStops(s => [...s, { uid: ++uid.current, name: a.name, place: a.place, lat: a.lat, lon: a.lon, story: a.description }]);
+    changeStops(s => [...s, { uid: ++uid.current, name: a.name, place: a.place, lat: a.lat, lon: a.lon, story: a.description, ...(a.access ? { access: { ...a.access } } : {}) }]);
   };
   const move = (i: number, d: number) => changeStops(s => { const n = [...s]; const j = i + d; if (j < 0 || j >= n.length) return s; [n[i], n[j]] = [n[j], n[i]]; return n; });
   const remove = (i: number) => changeStops(s => s.filter((_, k) => k !== i));

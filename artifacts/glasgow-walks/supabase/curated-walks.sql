@@ -16,6 +16,14 @@ begin
       or jsonb_typeof(s->'lon') is distinct from 'number' then return false; end if;
     if (s->>'lat')::double precision not between -90 and 90
       or (s->>'lon')::double precision not between -180 and 180 then return false; end if;
+    -- Validate optional access field if present
+    if s->'access' is not null and jsonb_typeof(s->'access') = 'object' then
+      if jsonb_typeof((s->'access')->>'step_free') is not null and (s->'access'->>'step_free') not in ('unknown', 'yes', 'no')
+        or jsonb_typeof((s->'access')->>'accessible_toilet') is not null and (s->'access'->>'accessible_toilet') not in ('unknown', 'yes', 'no')
+        or jsonb_typeof((s->'access')->>'seating') is not null and (s->'access'->>'seating') not in ('unknown', 'yes', 'no')
+        or ((s->'access')->>'notes') is not null and char_length((s->'access'->>'notes')) > 1500 then return false;
+      end if;
+    end if;
   end loop;
   return true;
 exception when others then return false;

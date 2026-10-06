@@ -3,8 +3,12 @@ import type { Position } from './attractions';
 import type { ItinerarySnapshot, ItineraryStop } from './itinerary-snapshot';
 import { itineraryStyles } from './itinerary-style';
 
-const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+const escape = (value: string) => value
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
 const coordinate = (point: Position) => `${point.lat.toFixed(6)}, ${point.lon.toFixed(6)}`;
 const validPosition = (p: Position) => p && Number.isFinite(p.lat) && Number.isFinite(p.lon) &&
   Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180;
@@ -18,6 +22,9 @@ function validate(itinerary: ItinerarySnapshot) {
     [t.title, t.description, t.category, t.start.label].some(v => typeof v !== 'string') ||
     t.stops.some(s => !validPosition(s) || [s.name, s.place, s.story].some(v => typeof v !== 'string'))) {
     throw new Error('This itinerary is incomplete. Please choose a complete walk before printing or downloading.');
+  }
+  if (t.accessPreference !== undefined && t.accessPreference !== 'any' && t.accessPreference !== 'step-free') {
+    throw new Error('Invalid access preference in this itinerary.');
   }
   for (const stop of t.stops) if (stop.access !== undefined) validateAccessDetails(stop.access);
   if (t.geometry && (t.kind !== 'planned' || t.geometry.type !== 'LineString' ||
@@ -71,7 +78,7 @@ ${a.notes ? `<p class="notes">Owner-provided note: ${escape(a.notes)}</p>` : ''}
 
 export function itineraryFilename(itinerary: ItinerarySnapshot): string {
   const slug = itinerary.title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/, '').slice(0, 80);
   return `wander-glasgow-${slug || 'itinerary'}.html`;
 }
 
@@ -83,6 +90,9 @@ export function itineraryDocument(itinerary: ItinerarySnapshot, savedAt = new Da
   const note = t.kind === 'planned'
     ? 'This copy includes the chosen starting coordinates and, when available, the calculated route shape. The start may be your GPS location. The file stays on your device unless you share it; this export does not upload or retain your itinerary on the site.'
     : 'This is the editorial itinerary from its listed start. It does not include a GPS connection or a calculated pedestrian-route illustration, even if you separately previewed a walking route.';
+  const accessNote = t.accessPreference === 'step-free'
+    ? '<p class="access-note">This walk was constrained to attractions with a recorded step-free entrance. Unknown access is excluded. This is not an accessibility certification; paths between sights have not been assessed.</p>'
+    : '';
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
@@ -91,6 +101,7 @@ export function itineraryDocument(itinerary: ItinerarySnapshot, savedAt = new Da
 <header><p class="brand">WANDER GLASGOW</p><p class="kicker">${t.kind === 'planned' ? 'Calculated walk' : 'Curated walk'} · ${escape(t.category)}</p>
 <h1>${escape(t.title)}</h1><p class="description">${escape(t.description)}</p>
 <p class="summary">${metricLabel}: ${(t.distanceMeters / 1000).toFixed(2)} km · about ${Math.ceil(t.durationSeconds / 60)} min walking · ${t.stops.length} stops. Time at stops is not included.</p>
+${accessNote}
 <p class="snapshot-time">Snapshot prepared ${escape(savedAt.toISOString())}. This is a fixed copy; details and local conditions can change.</p></header>
 <section class="start"><h2>Starting point</h2><p>${escape(t.start.label)}<br>Coordinates: ${coordinate(t.start)}</p></section>
 ${routeIllustration(t)}

@@ -1,4 +1,5 @@
 import type { Tour, Stop } from './tours';
+import { validateAccessDetails } from './access-details';
 
 export type ManagedWalk = Tour & { published: boolean; updatedAt?: string };
 export type WalkInput = Omit<Tour, 'id' | 'start'> & { published: boolean };
@@ -20,12 +21,14 @@ export function validateWalk(input: WalkInput): WalkInput {
     if (!stop || !Number.isFinite(stop.lat) || !Number.isFinite(stop.lon) ||
       stop.lat < -90 || stop.lat > 90 || stop.lon < -180 || stop.lon > 180)
       throw new Error(`Stop ${i + 1} needs valid map coordinates.`);
-    return {
+    const result: Stop = {
       name: text(stop.name, `Stop ${i + 1} name`, 2, 200),
       place: text(stop.place, `Stop ${i + 1} location`, 0, 300),
       story: text(stop.story, `Stop ${i + 1} description`, 10, 5000),
       lat: stop.lat, lon: stop.lon,
     };
+    if (stop.access !== undefined) result.access = validateAccessDetails(stop.access);
+    return result;
   });
   if (!Number.isFinite(input.distanceKm) || input.distanceKm < 0 || input.distanceKm > 100 ||
     !Number.isInteger(input.minutes) || input.minutes < 0 || input.minutes > 10000 ||

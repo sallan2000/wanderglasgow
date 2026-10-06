@@ -1,5 +1,6 @@
 import type { Position } from './attractions';
 import type { AccessDetails } from './access-details';
+import type { AccessPreference } from './access-details';
 import type { Tour } from './tours';
 import type { PlannedWalk } from './walk-planner';
 
@@ -16,6 +17,7 @@ export type ItinerarySnapshot = {
   distanceMeters: number;
   durationSeconds: number;
   geometry?: PlannedWalk['geometry'];
+  accessPreference?: AccessPreference;
 };
 
 // Snapshots use only the itinerary already on screen, never a fresh fetch.
@@ -44,5 +46,6 @@ export function plannedItinerary(plan: PlannedWalk): ItinerarySnapshot {
     ...(plan.geometry ? { geometry: {
       type: 'LineString', coordinates: plan.geometry.coordinates.map(point => [...point] as [number, number]),
     } } : {}),
+    ...(plan.accessPreference && plan.accessPreference !== 'any' ? { accessPreference: plan.accessPreference } : {}),
   };
 }
