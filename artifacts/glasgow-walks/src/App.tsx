@@ -201,7 +201,7 @@ function PublicApp() {
             <div className={geoStatus === 'success' ? '' : 'geo-message'} data-testid="status-location">{geoMessage}</div>
             {nearby.map(({ tour, distance }) => (
               <button className="nearby-result" key={tour.id} onClick={() => setSelected(tour)} data-testid={`nearby-tour-${tour.id}`}>
-                <span>{tour.title}<small style={{ display: 'block', marginTop: 4, fontWeight: 400, color: '#586e5f' }}>Starts at {tour.start}</small></span>
+                <span>{tour.title}<small style={{ display: 'block', marginTop: 4, fontWeight: 400 }}>Starts at {tour.start}</small></span>
                 <span>{distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`} <ArrowRight size={14} /></span>
               </button>
             ))}

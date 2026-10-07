@@ -518,6 +518,7 @@ button { cursor: pointer; }
 .location-button:disabled{opacity:.65;cursor:wait}
 .nearby-results{grid-column:1/-1;border-top:1px solid #bacb7b;padding-top:18px;display:grid;gap:8px}
 .nearby-result{background:#edf3cc;border:0;text-align:left;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;color:var(--ink);font-weight:700}
+.nearby-result small{color:#586e5f}
 .geo-message{font-size:13px;color:#594d3c;background:#f4e8c0;padding:13px 16px}
 .detail-overlay{position:fixed;inset:0;background:#142b2790;z-index:1000;display:flex;justify-content:flex-end;backdrop-filter:blur(3px)}
 .detail-drawer{background:var(--paper);height:100%;width:min(100%,680px);overflow:auto;padding:30px clamp(20px,4vw,46px) 110px;box-shadow:-20px 0 65px #10231e33;position:relative;animation:slide-in .26s ease-out}
@@ -639,11 +640,17 @@ button { cursor: pointer; }
     background: #2a241f;
   }
   .nearby-panel {
-    background: var(--lime);
+    background: #2d3c30;
+  }
+  .nearby-panel p {
+    color: var(--ink-soft);
+  }
+  .nearby-result small {
+    color: var(--ink-soft);
   }
   .location-button {
     background: var(--orange-strong);
-    color: #fff7e8;
+    color: #1f1c19;
   }
   .hero-landmark-name {
     color: var(--ink);
