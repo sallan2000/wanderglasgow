@@ -15,6 +15,7 @@ import { curatedEmailWalk } from './walk-email';
 import ItineraryActions from './ItineraryActions';
 import { curatedItinerary } from './itinerary-snapshot';
 import { isTheme, readThemePersistence, setThemePersistence } from './lib/theme';
+import { buildNavigationUrls, type Coordinate } from './route-url';
 
 
 const themeCount = (theme: Theme, tours: Tour[]) => {
@@ -256,6 +257,17 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
   const [routeInfo, setRouteInfo] = useState('');
   const routeRun = useRef(0);
   const routeAbort = useRef<AbortController | null>(null);
+  const { appleMapsUrl, googleMapsUrl } = buildNavigationUrls(
+    [
+      { lat: tour.stops[0].lat, lon: tour.stops[0].lon },
+      ...tour.stops.map(stop => ({ lat: stop.lat, lon: stop.lon })),
+    ],
+  );
+  const openTourNavigation = () => {
+    if (!appleMapsUrl || !googleMapsUrl) return;
+    window.open(appleMapsUrl, '_blank', 'noopener,noreferrer');
+    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => {
     let active = true;
@@ -381,6 +393,11 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
           </button>
           <button className="button-secondary" onClick={() => beginRoute(false)} disabled={!mapLoaded || routeState === 'locating' || routeState === 'routing'} data-testid="button-route-tour-start">Route from tour start <ArrowRight size={14} /></button>
           <p className="map-credit">Routing sends the tour stops—and your coordinates only if you use GPS—to the independent OpenStreetMap walking service. Opening hours and access can change; check locally before entering attractions.</p>
+        </div>
+        <div className="route-actions">
+          <button type="button" className="button-secondary navigation-button" onClick={openTourNavigation} disabled={!appleMapsUrl || !googleMapsUrl} data-testid="button-open-tour-navigation" aria-label="Open walk in Apple Maps and Google Maps">
+            <Navigation size={15} /> Open in navigation
+          </button>
         </div>
         <h3 className="stops-heading">Your stops, in order</h3>
         {tour.stops.map((stop, index) => (

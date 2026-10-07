@@ -5,3 +5,14 @@
 .itinerary-actions button:focus-visible { outline: 3px solid #d86543; outline-offset: 2px; }
 .itinerary-actions .itinerary-status { margin-top: 10px; font-weight: 600; }
 .itinerary-actions .itinerary-error { margin-top: 10px; padding: 10px; border-radius: 8px; border: 1px solid #a3361a; color: #7a2410; background: #fbeee9; font-size: 13px; }
+.itinerary-actions .navigation-button {
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+  border-radius: 4px;
+  padding: 14px 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.itinerary-actions .navigation-button:hover { background: #24574f; }
+.itinerary-actions .navigation-button[disabled] { opacity: 0.45; cursor: not-allowed; }
