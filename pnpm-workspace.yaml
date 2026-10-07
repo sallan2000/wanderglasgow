@@ -158,5 +158,7 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.28.2"
-  # orval pins js-yaml to an exact version older than the CVE fix (>=4.3.2)
-  js-yaml: '4.3.2'
+  # Express 5.2.1 accepts proxy-addr ^2.0.7; pin the fixed compatible release.
+  proxy-addr: 2.0.8
+  # Tailwind/PostCSS accept the patched source-map-js version within their ranges.
+  source-map-js: 1.2.2
