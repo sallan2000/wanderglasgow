@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Printer } from 'lucide-react';
+import { Download, Navigation, Printer } from 'lucide-react';
 import type { ItinerarySnapshot } from './itinerary-snapshot';
 import { itineraryDocument, itineraryFilename } from './itinerary-document';
+import { buildNavigationUrls } from './route-url';
 import './itinerary-actions.css';
 
 export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySnapshot }) {
@@ -100,6 +101,16 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
   };
 
   const planned = itinerary.kind === 'planned';
+  const coordinates = [
+    { lat: itinerary.start.lat, lon: itinerary.start.lon },
+    ...itinerary.stops.map(stop => ({ lat: stop.lat, lon: stop.lon })),
+  ];
+  const { appleMapsUrl, googleMapsUrl } = buildNavigationUrls(coordinates);
+  const openNavigation = () => {
+    if (!appleMapsUrl || !googleMapsUrl) return;
+    window.open(appleMapsUrl, '_blank', 'noopener,noreferrer');
+    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+  };
   return (
     <div className="itinerary-actions" data-testid="section-itinerary-actions">
       <h4>Print or keep this itinerary</h4>
@@ -112,6 +123,7 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
       <div className="itinerary-buttons">
         <button ref={printBtn} type="button" className="button-secondary" onClick={print} disabled={printing} data-testid="button-print-itinerary"><Printer size={15} /> {printing ? 'Preparing print…' : 'Print itinerary'}</button>
         <button ref={downloadBtn} type="button" className="button-secondary" onClick={download} data-testid="button-download-itinerary"><Download size={15} /> Download HTML</button>
+        <button type="button" className="button-secondary navigation-button" onClick={openNavigation} disabled={!appleMapsUrl || !googleMapsUrl} data-testid="button-open-itinerary-navigation" aria-label="Open walk in Apple Maps and Google Maps"><Navigation size={15} /> Open in navigation</button>
       </div>
       <div role="status" aria-live="polite" className="itinerary-status" data-testid="status-itinerary">{status}</div>
       {error && <div role="alert" className="itinerary-error" data-testid="status-itinerary-error">{error}</div>}
