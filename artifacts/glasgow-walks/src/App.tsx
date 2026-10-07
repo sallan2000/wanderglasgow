@@ -232,7 +232,7 @@ function PublicApp() {
             <summary data-testid="toggle-privacy-details">More privacy details</summary>
             <div className="privacy-cookie-details">
               <p>The remember setting is also stored in this browser so we can respect your choice. Admin sign-in stores an administrator session here.</p>
-              <p>Google Fonts, Supabase, and OpenStreetMap services receive requests needed for fonts, walk data, maps, and routing. A routed walk sends your chosen origin to the routing provider; GPS coordinates are included only if you choose GPS routing. Optional itinerary email uses Cloudflare’s security check and Resend. Providers may receive technical request data such as your IP address.</p>
+              <p>Google Fonts, Supabase, and OpenStreetMap services receive requests needed for fonts, walk data, maps, and routing. Printing or downloading an itinerary requests the approximate walk area from OpenStreetMap’s map-data service; it does not send the file or stop stories. A routed walk sends your chosen origin to the routing provider; GPS coordinates are included only if you choose GPS routing. Optional itinerary email uses Cloudflare’s security check and Resend. Providers may receive technical request data such as your IP address.</p>
             </div>
           </details>
         </div>

@@ -16,7 +16,7 @@ h4 { font-size: 10pt; text-transform: uppercase; letter-spacing: .06em; margin: 
 .description { font-size: 13pt; }
 .summary, .snapshot-time { font: 10pt system-ui, sans-serif; color: #222; }
 .route-figure { margin: 18px 0; break-inside: avoid; page-break-inside: avoid; }
-.route-figure svg { width: 100%; height: auto; border: 1px solid #111; background: #fff; }
+.route-figure svg { display: block; width: 100%; height: auto; max-height: 680px; margin: 0 auto; border: 1px solid #111; background: #fff; }
 .route-credit { font: 9pt system-ui, sans-serif; color: #222; margin-top: 4px; }
 article.stop { border-left: 4px solid #183a36; padding: 4px 0 4px 12px; margin: 0 0 16px; }
 .place { font: 600 10pt system-ui, sans-serif; color: #183a36; }
@@ -24,5 +24,5 @@ article.stop { border-left: 4px solid #183a36; padding: 4px 0 4px 12px; margin: 
 section.access ul { margin: 0 0 6px; padding-left: 20px; }
 .notes { font-size: 10pt; }
 footer { margin-top: 28px; padding-top: 10px; border-top: 2px solid #111; font: 9.5pt/1.45 system-ui, sans-serif; }
-@media print { main.itinerary { padding: 0; max-width: none; } a { color: #111; } }
+@media print { main.itinerary { padding: 0; max-width: none; } .route-figure svg { max-height: 175mm; } a { color: #111; } }
 `;

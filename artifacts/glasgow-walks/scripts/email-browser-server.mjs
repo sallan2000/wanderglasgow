@@ -7,6 +7,7 @@ const root = resolve(import.meta.dirname, '..');
 // Explicit public fixture configuration: never inherit the owner's VITE secrets.
 const server = await createServer({
   configFile: false, root, cacheDir: resolve(root, 'node_modules/.vite-email-tests'),
+  resolve: { alias: { '@': resolve(root, 'src') } },
   define: {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://supabase.fixture.invalid'),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_fixture'),

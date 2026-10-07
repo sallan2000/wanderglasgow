@@ -1,6 +1,7 @@
 import { ACCESS_FIELDS, validateAccessDetails } from './access-details';
 import type { Position } from './attractions';
 import type { ItinerarySnapshot, ItineraryStop } from './itinerary-snapshot';
+import { validateItineraryMapSnapshot, type ItineraryMapSnapshot } from './itinerary-map';
 import { itineraryStyles } from './itinerary-style';
 
 const escape = (value: string) => value
@@ -35,35 +36,120 @@ function validate(itinerary: ItinerarySnapshot) {
   }
 }
 
-// This is a route-shape illustration, not a street map. Use only an actual
-// calculated LineString; never connect the curated stops with a fabricated path.
-function routeIllustration(t: ItinerarySnapshot): string {
-  if (!t.geometry) return '';
-  const lonScale = Math.max(0.01, Math.cos(t.start.lat * Math.PI / 180));
-  const points = t.geometry.coordinates.map(([lon, lat]) => [lon * lonScale, -lat]);
-  const markers = [t.start, ...t.stops].map(p => [p.lon * lonScale, -p.lat]);
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const [x, y] of [...points, ...markers]) {
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-  }
-  const scale = Math.min(640 / Math.max(maxX - minX, 1e-6), 340 / Math.max(maxY - minY, 1e-6));
-  const project = ([x, y]: number[]) => [
-    (360 + (x - (minX + maxX) / 2) * scale).toFixed(2),
-    (210 + (y - (minY + maxY) / 2) * scale).toFixed(2),
+function projectMapPoint(point: Position, bounds: ItineraryMapSnapshot['bounds'], unitScale: number) {
+  const latitude = (bounds.south + bounds.north) / 2;
+  const xScale = 111_320 * Math.max(0.01, Math.cos(latitude * Math.PI / 180));
+  return [
+    ((point.lon - bounds.west) * xScale / unitScale).toFixed(1),
+    ((bounds.north - point.lat) * 111_320 / unitScale).toFixed(1),
   ];
+}
+
+function mapPath(
+  coordinates: Position[],
+  bounds: ItineraryMapSnapshot['bounds'],
+  unitScale: number,
+  closed: boolean,
+): string {
+  const projected = coordinates.map(point => projectMapPoint(point, bounds, unitScale).map(Number));
+  const simplified: number[][] = [];
+  const toleranceSquared = 0.45 * 0.45;
+  for (const point of projected) {
+    const previous = simplified.at(-1);
+    if (!previous || (point[0] - previous[0]) ** 2 + (point[1] - previous[1]) ** 2 >= toleranceSquared) {
+      simplified.push(point);
+    }
+  }
+  const last = projected.at(-1);
+  if (last && simplified.at(-1) !== last) simplified.push(last);
+  if (simplified.length < (closed ? 3 : 2)) return '';
+  return `M${simplified.map(point => `${point[0].toFixed(1)} ${point[1].toFixed(1)}`).join('L')}${closed ? 'Z' : ''}`;
+}
+
+function mapMarkers(t: ItinerarySnapshot, bounds: ItineraryMapSnapshot['bounds'], unitScale: number) {
+  const markers: Array<{ point: Position; label: string; start: boolean }> = [
+    { point: t.start, label: 'S', start: true },
+  ];
+  t.stops.forEach((stop, index) => {
+    const existing = markers.find(marker =>
+      Math.abs(marker.point.lat - stop.lat) < 0.00004 && Math.abs(marker.point.lon - stop.lon) < 0.00004);
+    if (existing) existing.label = `${existing.label}/${index + 1}`;
+    else markers.push({ point: stop, label: String(index + 1), start: false });
+  });
+  return markers.map(marker => {
+    const [x, y] = projectMapPoint(marker.point, bounds, unitScale);
+    const fill = marker.start ? '#183a36' : '#ffffff';
+    const text = marker.start ? '#ffffff' : '#183a36';
+    const fontSize = marker.label.length > 2 ? 8 : 11;
+    return `<g data-map-marker="${marker.label}"><circle cx="${x}" cy="${y}" r="12" fill="${fill}" stroke="#183a36" stroke-width="2"/><text x="${x}" y="${y}" dy="4" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="${text}">${marker.label}</text></g>`;
+  }).join('\n');
+}
+
+function mapIllustration(t: ItinerarySnapshot, map: ItineraryMapSnapshot): string {
+  const { bounds } = map;
+  const latitude = (bounds.south + bounds.north) / 2;
+  const metresPerLongitudeDegree = 111_320 * Math.max(0.01, Math.cos(latitude * Math.PI / 180));
+  const widthMeters = (bounds.east - bounds.west) * metresPerLongitudeDegree;
+  const heightMeters = (bounds.north - bounds.south) * 111_320;
+  const unitScale = Math.max(widthMeters, heightMeters) / 720;
+  const viewWidth = (widthMeters / unitScale).toFixed(1);
+  const viewHeight = (heightMeters / unitScale).toFixed(1);
+  const featurePath = (feature: ItineraryMapSnapshot['features'][number]) =>
+    mapPath(feature.coordinates, bounds, unitScale, feature.closed);
+  const greenAreas = map.features.filter(feature => feature.kind === 'green').map(feature => {
+    const path = featurePath(feature);
+    return path ? `<path d="${path}" fill="#dcead5" stroke="#c5d9bc" stroke-width="1"/>` : '';
+  }).join('\n');
+  const waterAreas = map.features.filter(feature => feature.kind === 'water').map(feature => {
+    const path = featurePath(feature);
+    return path ? `<path d="${path}" fill="${feature.closed ? '#d8eaf0' : 'none'}" stroke="#9fcbd8" stroke-width="${feature.closed ? 1 : 3}"/>` : '';
+  }).join('\n');
+  const waterways = map.features.filter(feature => feature.kind === 'waterway').map(feature => {
+    const path = featurePath(feature);
+    return path ? `<path d="${path}" fill="none" stroke="#a8d4e1" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+  }).join('\n');
+  const roads = map.features.filter(feature => feature.kind === 'road').map(feature => {
+    const path = featurePath(feature);
+    if (!path) return '';
+    const major = ['motorway', 'trunk', 'primary'].includes(feature.subtype);
+    const secondary = ['secondary', 'tertiary'].includes(feature.subtype);
+    const casing = major ? 7 : secondary ? 5 : 3.4;
+    const width = major ? 4 : secondary ? 2.6 : 1.5;
+    const color = major ? '#e4c989' : secondary ? '#fffdf6' : '#ffffff';
+    const outline = major ? '#c6b17e' : '#c6ceca';
+    return `<g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${path}" stroke="${outline}" stroke-width="${casing}"/><path d="${path}" stroke="${color}" stroke-width="${width}"/></g>`;
+  }).join('\n');
+  const roadLabels = [...new Set(map.features
+    .filter(feature => feature.kind === 'road' && feature.name &&
+      ['primary', 'secondary', 'tertiary', 'residential'].includes(feature.subtype))
+    .map(feature => feature.name!))].slice(0, 24).map(name => {
+      const feature = map.features.find(candidate => candidate.kind === 'road' && candidate.name === name)!;
+      const midpoint = feature.coordinates[Math.floor(feature.coordinates.length / 2)];
+      const [x, y] = projectMapPoint(midpoint, bounds, unitScale);
+      return `<text x="${x}" y="${y}" font-family="Arial,sans-serif" font-size="9" fill="#34433d" stroke="#f5f2e9" stroke-width="3" paint-order="stroke" text-anchor="middle">${escape(name)}</text>`;
+    }).join('\n');
+  const routePath = t.geometry
+    ? mapPath(t.geometry.coordinates.map(([lon, lat]) => ({ lon, lat })), bounds, unitScale, false)
+    : '';
+  const routeLine = routePath
+    ? `<path d="${routePath}" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path data-route-line="true" d="${routePath}" fill="none" stroke="#183a36" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`
+    : '';
+  const description = t.geometry
+    ? 'OpenStreetMap street background with the calculated walking route. S is the start and numbered circles match the stops in order. North is up; this is not turn-by-turn navigation.'
+    : 'OpenStreetMap street background with the start and numbered stop positions. No calculated pedestrian route is shown. North is up.';
+  const routeNote = t.geometry
+    ? 'The calculated pedestrian route is shown over the street map.'
+    : 'Numbered stop positions only · no calculated pedestrian route is shown.';
+
   return `<figure class="route-figure">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" role="img" aria-labelledby="route-title route-description">
-<title id="route-title">Calculated walking-route shape</title>
-<desc id="route-description">North is up. S is the chosen start; numbers match the ordered stops. There is no street background or turn-by-turn navigation.</desc>
-<rect x="1" y="1" width="718" height="418" rx="8" fill="#f7f7f4" stroke="#b5bdb9"/>
-<polyline points="${points.map(p => project(p).join(',')).join(' ')}" fill="none" stroke="#183a36" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
-${markers.map((point, i) => {
-    const [x, y] = project(point);
-    return `<g><circle cx="${x}" cy="${y}" r="12" fill="${i ? '#fff' : '#183a36'}" stroke="#183a36" stroke-width="2"/><text x="${x}" y="${y}" dy="4" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="${i ? '#183a36' : '#fff'}">${i || 'S'}</text></g>`;
-  }).join('')}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewWidth} ${viewHeight}" role="img" aria-labelledby="route-map-title route-map-description">
+<title id="route-map-title">Street map for ${escape(t.title)}</title>
+<desc id="route-map-description">${description}</desc>
+<defs><clipPath id="map-clip"><rect x="0" y="0" width="${viewWidth}" height="${viewHeight}"/></clipPath></defs>
+<rect x="0" y="0" width="${viewWidth}" height="${viewHeight}" fill="#f5f2e9"/>
+<g clip-path="url(#map-clip)">${greenAreas}${waterAreas}${waterways}${roads}${roadLabels}${routeLine}${mapMarkers(t, bounds, unitScale)}</g>
 </svg>
-<figcaption class="route-credit">Calculated route shape only · north up · no street map. Route data © OpenStreetMap contributors (${escape('https://www.openstreetmap.org/copyright')}).</figcaption>
+<figcaption class="route-credit">${routeNote} Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL). North is up.</figcaption>
 </figure>`;
 }
 
@@ -78,18 +164,23 @@ ${a.notes ? `<p class="notes">Owner-provided note: ${escape(a.notes)}</p>` : ''}
 
 export function itineraryFilename(itinerary: ItinerarySnapshot): string {
   const slug = itinerary.title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/, '').slice(0, 80);
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
   return `wander-glasgow-${slug || 'itinerary'}.html`;
 }
 
-export function itineraryDocument(itinerary: ItinerarySnapshot, savedAt = new Date()): string {
+export function itineraryDocument(
+  itinerary: ItinerarySnapshot,
+  map: ItineraryMapSnapshot,
+  savedAt = new Date(),
+): string {
   validate(itinerary);
+  validateItineraryMapSnapshot(map);
   if (!Number.isFinite(savedAt.getTime())) throw new Error('The itinerary date is invalid.');
   const t = itinerary;
   const metricLabel = t.kind === 'planned' ? 'Calculated walking totals' : 'Curated walking estimates';
   const note = t.kind === 'planned'
-    ? 'This copy includes the chosen starting coordinates and, when available, the calculated route shape. The start may be your GPS location. The file stays on your device unless you share it; this export does not upload or retain your itinerary on the site.'
-    : 'This is the editorial itinerary from its listed start. It does not include a GPS connection or a calculated pedestrian-route illustration, even if you separately previewed a walking route.';
+    ? 'This copy includes your chosen starting coordinates and the calculated route, which may include your GPS location. To add its street map, the approximate walk area and standard request information are sent to OpenStreetMap; the itinerary file and stop stories are not. The completed file stays on your device unless you share it.'
+    : 'This editorial copy shows the listed start and stops on an OpenStreetMap street map, without a GPS connection or calculated pedestrian route. The approximate map area and standard request information are sent to OpenStreetMap; the itinerary file and stop stories are not.';
   const accessNote = t.accessPreference === 'step-free'
     ? '<p class="access-note">This walk was constrained to attractions with a recorded step-free entrance. Unknown access is excluded. This is not an accessibility certification; paths between sights have not been assessed.</p>'
     : '';
@@ -104,13 +195,13 @@ export function itineraryDocument(itinerary: ItinerarySnapshot, savedAt = new Da
 ${accessNote}
 <p class="snapshot-time">Snapshot prepared ${escape(savedAt.toISOString())}. This is a fixed copy; details and local conditions can change.</p></header>
 <section class="start"><h2>Starting point</h2><p>${escape(t.start.label)}<br>Coordinates: ${coordinate(t.start)}</p></section>
-${routeIllustration(t)}
+ ${mapIllustration(t, map)}
 <section class="stops"><h2>Your stops, in order</h2>
 ${t.stops.map((stop, i) => `<article class="stop"><h3>${i + 1}. ${escape(stop.name)}</h3>
 <p class="place">${escape(stop.place)} · ${coordinate(stop)}</p><p class="story">${escape(stop.story)}</p>${accessDetails(stop)}</article>`).join('\n')}
 </section><footer>
 <p class="caveat">This is an itinerary, not turn-by-turn navigation. Check opening hours, pedestrian access and local conditions. Attraction access records are owner-provided, not certification; Unknown is not Yes or No. Paths between sights have not been assessed for accessibility. This is not a promise of an accessible route.</p>
 <p class="privacy">${escape(note)}</p>
-<p class="offline-help">This self-contained file can be read offline and printed using your browser’s Print menu, including Save as PDF where supported. It does not load live maps, update your location or calculate new walks.</p>
+ <p class="offline-help">This self-contained file embeds the street map and can be read offline or printed using your browser’s Print menu, including Save as PDF where supported. It does not load more map data, update your location or calculate new walks.</p>
 </footer></main></body></html>`;
 }

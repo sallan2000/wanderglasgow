@@ -25,7 +25,7 @@ async function offlineFile(browser, path) {
   return { context, page, requests, dialogs };
 }
 
-test('curated download opens offline without requests, invented paths or user location', async ({ page, browser }, testInfo) => {
+test('curated download embeds a street map and opens offline without invented paths or GPS location', async ({ page, browser }, testInfo) => {
   const state = await isolateEmail(page);
   await page.goto('/tests/email/index.html');
   await page.getByTestId('card-tour-fixture-curated').click();
@@ -33,11 +33,17 @@ test('curated download opens offline without requests, invented paths or user lo
   const requests = [];
   page.on('request', r => { if (r.url().startsWith('https://')) requests.push(r.url()); });
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage }));
-  await expect(page.getByTestId('text-itinerary-privacy')).toContainText('no GPS connector');
+  await expect(page.getByTestId('text-itinerary-privacy')).toContainText('without a GPS connection');
   const file = await download(page, testInfo, 'curated.html');
-  expect(file.html).not.toContain('<svg');
+  expect(file.html).toContain('<svg');
+  expect(file.html).toContain('data-map-marker="S/1"');
+  expect(file.html).not.toContain('data-route-line="true"');
   expect(file.html).not.toContain('55.862500'); // GPS fixture coordinate
-  expect(requests).toEqual([]);
+  expect(requests).toHaveLength(1);
+  expect(requests[0]).toContain('overpass-api.de/api/interpreter');
+  expect(state.mapRequests).toHaveLength(1);
+  expect(state.mapRequests[0].query).toContain('way["highway"]');
+  expect(state.mapRequests[0].query).not.toContain('A published story');
   expect(state.sends).toHaveLength(0);
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).toBe(storage);
   const offline = await offlineFile(browser, file.path);
@@ -77,24 +83,27 @@ test('calculated download preserves route, stop order and safely escaped access 
   await expect(page.getByTestId('text-itinerary-privacy')).toContainText('may include your GPS location');
   const file = await download(page, testInfo, 'planned.html');
   expect(state.routingRequests).toHaveLength(prior);
-  expect(requests).toEqual([]);
+  expect(requests).toHaveLength(1);
+  expect(requests[0]).toContain('overpass-api.de/api/interpreter');
+  expect(state.mapRequests).toHaveLength(1);
+  expect(state.mapRequests[0].query).not.toContain('Story one');
   expect(state.sends).toHaveLength(0);
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).toBe(storage);
   await page.getByTestId('button-print-itinerary').click();
-  await expect.poll(() => page.evaluate(() => window.__plannedPrint ?? '')).toContain('<polyline points=');
+  await expect.poll(() => page.evaluate(() => window.__plannedPrint ?? '')).toContain('data-route-line="true"');
   const printCopy = await page.evaluate(() => window.__plannedPrint);
   expect(printCopy).toContain('55.862500, -4.249000');
   expect(printCopy).toContain('Last sight');
   expect(printCopy).not.toContain('input-plan-radius');
   await expect(page.locator('iframe[title="Printable itinerary"]')).toHaveCount(0);
   expect(state.routingRequests).toHaveLength(prior);
-  expect(requests).toEqual([]);
+  expect(requests).toHaveLength(1);
   const offline = await offlineFile(browser, file.path);
   await expect(offline.page.locator('article.stop h3')).toHaveText(['1. <script>alert(1)</script>', '2. Last sight']);
   await expect(offline.page.locator('main')).toContainText('Owner note');
   await expect(offline.page.locator('main')).toContainText('Accessible toilet: No');
   await expect(offline.page.locator('main')).toContainText('55.862500, -4.249000');
-  await expect(offline.page.getByRole('img', { name: 'Calculated walking-route shape' })).toBeVisible();
+  await expect(offline.page.locator('svg[role="img"]')).toBeVisible();
   await expect(offline.page.locator('main')).toContainText('© OpenStreetMap contributors');
   await expect(offline.page.locator('script,img,iframe,link')).toHaveCount(0);
   expect(offline.requests).toEqual([]); expect(offline.dialogs).toEqual([]);

@@ -31,7 +31,7 @@ window.turnstile = {
 
 export async function isolateEmail(page) {
   const state = { sends: [], securityLoads: 0, unexpected: [], errors: [], send: null, securityFails: false,
-    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [] };
+    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [], mapRequests: [] };
   let tablePoints, distances;
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => {
@@ -75,6 +75,30 @@ export async function isolateEmail(page) {
           distance: state.routeDistanceOverride ?? distance, duration: 550, geometry: { type: 'LineString', coordinates: points },
         }] } });
       }
+    }
+    if (u.hostname === 'overpass-api.de' && u.pathname === '/api/interpreter') {
+      const query = u.searchParams.get('data') ?? '';
+      const match = query.match(/\((-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+)\)/);
+      if (!match) {
+        state.unexpected.push('invalid-map-bounds');
+        return route.fulfill({ status: 400, body: 'Missing map bounds' });
+      }
+      const [south, west, north, east] = match[1].split(',').map(Number);
+      state.mapRequests.push({ query, bounds: { south, west, north, east } });
+      const lat = (south + north) / 2, lon = (west + east) / 2;
+      const latSpan = north - south, lonSpan = east - west;
+      return route.fulfill({
+        status: 200,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elements: [
+          { type: 'way', id: 101, tags: { highway: 'primary', name: 'Sauchiehall Street' },
+            geometry: [{ lat: lat - latSpan * 0.3, lon: lon - lonSpan * 0.35 }, { lat: lat + latSpan * 0.3, lon: lon + lonSpan * 0.35 }] },
+          { type: 'way', id: 102, tags: { highway: 'residential', name: 'Rose Street' },
+            geometry: [{ lat: lat - latSpan * 0.25, lon: lon + lonSpan * 0.35 }, { lat: lat + latSpan * 0.25, lon: lon - lonSpan * 0.35 }] },
+          { type: 'way', id: 103, tags: { leisure: 'park' },
+            geometry: [{ lat: lat, lon: lon }, { lat: lat, lon: lon + lonSpan * 0.1 }, { lat: lat + latSpan * 0.1, lon }, { lat, lon }] },
+        ] }),
+      });
     }
     // Deliberately fail background maps; email must still function without them.
     if (u.hostname === 'unpkg.com' || u.hostname.endsWith('.tile.openstreetmap.org')) return route.abort();

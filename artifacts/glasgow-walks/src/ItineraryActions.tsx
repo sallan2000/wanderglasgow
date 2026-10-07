@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Download, Navigation, Printer } from 'lucide-react';
 import type { ItinerarySnapshot } from './itinerary-snapshot';
 import { itineraryDocument, itineraryFilename } from './itinerary-document';
+import { fetchItineraryMapSnapshot } from './itinerary-map';
 import { buildNavigationUrls } from './route-url';
 import './itinerary-actions.css';
 
@@ -9,9 +10,11 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [printing, setPrinting] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const printBtn = useRef<HTMLButtonElement>(null);
   const downloadBtn = useRef<HTMLButtonElement>(null);
   const frame = useRef<HTMLIFrameElement | null>(null);
+  const mapRequest = useRef<AbortController | null>(null);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const mounted = useRef(true);
 
@@ -22,6 +25,7 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
     return () => {
       mounted.current = false;
       t.forEach(clearTimeout); t.clear();
+      mapRequest.current?.abort();
       removeFrame();
     };
   }, []);
@@ -38,10 +42,27 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
     requestAnimationFrame(() => printBtn.current?.focus());
   };
 
-  const download = () => {
-    setError(''); setStatus('');
+  const prepareDocument = async () => {
+    mapRequest.current?.abort();
+    const controller = new AbortController();
+    mapRequest.current = controller;
+    setStatus('Loading the OpenStreetMap street background…');
     try {
-      const html = itineraryDocument(itinerary);
+      const map = await fetchItineraryMapSnapshot(itinerary, controller.signal);
+      if (!mounted.current || controller.signal.aborted) return null;
+      return itineraryDocument(itinerary, map);
+    } finally {
+      if (mapRequest.current === controller) mapRequest.current = null;
+    }
+  };
+
+  const download = async () => {
+    if (printing || downloading) return;
+    setError(''); setStatus('');
+    setDownloading(true);
+    try {
+      const html = await prepareDocument();
+      if (!html || !mounted.current) return;
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
       const a = document.createElement('a');
       a.href = url; a.download = itineraryFilename(itinerary); a.style.display = 'none';
@@ -49,23 +70,39 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
       // Keep a handed-off URL alive through navigation/unmount while the browser
       // accepts the download. This cleanup never updates component state.
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-      setStatus('Download requested. Your browser decides whether to save it; check Downloads or Files, then open the HTML file offline.');
-    } catch {
-      setError('The itinerary file could not be created. Try the Print button, or use your browser Print command.');
+      setStatus('Download requested. Your browser decides whether to save it; the embedded map works offline.');
+    } catch (cause) {
+      if (mounted.current && !(cause instanceof DOMException && cause.name === 'AbortError')) {
+        setStatus('');
+        setError(cause instanceof Error ? cause.message : 'The street map could not be loaded. Check your connection and try again.');
+      }
+    } finally {
+      if (mounted.current) {
+        setDownloading(false);
+        requestAnimationFrame(() => downloadBtn.current?.focus());
+      }
     }
-    downloadBtn.current?.focus();
   };
 
-  const print = () => {
-    if (printing) return;
+  const print = async () => {
+    if (printing || downloading) return;
     setError(''); setStatus('');
     removeFrame();
-    let html: string;
-    try { html = itineraryDocument(itinerary); } catch {
-      setError('The itinerary could not be prepared for printing. Try Download, then use browser Print.'); return;
-    }
-    const unavailable = 'Printing is unavailable or was blocked. Use Download, open the file, then use your browser Print command.';
     setPrinting(true);
+    let html: string | null;
+    try {
+      html = await prepareDocument();
+    } catch (cause) {
+      if (mounted.current && !(cause instanceof DOMException && cause.name === 'AbortError')) {
+        setPrinting(false);
+        setStatus('');
+        setError(cause instanceof Error ? cause.message : 'The street map could not be loaded. Check your connection and try again.');
+        requestAnimationFrame(() => printBtn.current?.focus());
+      }
+      return;
+    }
+    if (!html || !mounted.current) { if (mounted.current) setPrinting(false); return; }
+    const unavailable = 'Printing is unavailable or was blocked. Use Download, open the file, then use your browser Print command.';
     const f = document.createElement('iframe');
     f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1; f.title = 'Printable itinerary';
     f.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0;visibility:hidden';
@@ -101,6 +138,7 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
   };
 
   const planned = itinerary.kind === 'planned';
+  const busy = printing || downloading;
   const coordinates = [
     { lat: itinerary.start.lat, lon: itinerary.start.lon },
     ...itinerary.stops.map(stop => ({ lat: stop.lat, lon: stop.lon })),
@@ -116,13 +154,13 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
       <h4>Print or keep this itinerary</h4>
       <p data-testid="text-itinerary-privacy">
         {planned
-          ? 'This copy includes your chosen starting coordinates and calculated route, which may include your GPS location. The file stays on your device unless you share it. This print or download action does not upload or retain the file on the site.'
-          : 'This copy is an editorial itinerary of the listed start and stops. It has no GPS connector and no calculated walking-route illustration.'}
-        {' '}Downloaded HTML opens offline from Downloads or Files. Your browser Print can save a PDF. There is no live navigation and no guarantee of access; check locally.
+          ? 'This copy includes your chosen starting coordinates and calculated route, which may include your GPS location.'
+          : 'This editorial copy shows the listed start and stop positions without a GPS connection or calculated route.'}
+        {' '}To add the street map, OpenStreetMap receives the approximate walk area and standard request information; it does not receive the itinerary file or stop stories. The completed HTML embeds the map and stays on your device unless you share it. Your browser Print can save a PDF. There is no live navigation and no guarantee of access; check locally.
       </p>
       <div className="itinerary-buttons">
-        <button ref={printBtn} type="button" className="button-secondary" onClick={print} disabled={printing} data-testid="button-print-itinerary"><Printer size={15} /> {printing ? 'Preparing print…' : 'Print itinerary'}</button>
-        <button ref={downloadBtn} type="button" className="button-secondary" onClick={download} data-testid="button-download-itinerary"><Download size={15} /> Download HTML</button>
+        <button ref={printBtn} type="button" className="button-secondary" onClick={print} disabled={busy} data-testid="button-print-itinerary"><Printer size={15} /> {printing ? 'Preparing map…' : 'Print itinerary'}</button>
+        <button ref={downloadBtn} type="button" className="button-secondary" onClick={download} disabled={busy} data-testid="button-download-itinerary"><Download size={15} /> {downloading ? 'Preparing map…' : 'Download HTML'}</button>
         <button type="button" className="button-secondary navigation-button" onClick={openNavigation} disabled={!appleMapsUrl || !googleMapsUrl} data-testid="button-open-itinerary-navigation" aria-label="Open walk in Apple Maps and Google Maps"><Navigation size={15} /> Open in navigation</button>
       </div>
       <div role="status" aria-live="polite" className="itinerary-status" data-testid="status-itinerary">{status}</div>

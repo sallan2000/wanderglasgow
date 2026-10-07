@@ -8,4 +8,4 @@
 - [Rendered fixture isolation](rendered-fixture-isolation.md) — give component suites separate Vite fixtures when the same module needs different fake store contracts.
 - [Walking efficiency](walking-efficiency.md) — keep the visitor’s stop target before minimising distance; an exact stop order does not prove globally shortest street paths.
 - [Access claims](access-claims.md) — owner-provided attraction access does not certify the connecting walking route; unknown information is not suitable information.
-- [Offline itinerary scope](offline-itinerary-scope.md) — local copies are displayed snapshots, unlike server-resolved email; GPS retained in a file needs clear disclosure.
+- [Offline itinerary scope](offline-itinerary-scope.md) — exports embed bounded OSM vector maps requested on demand; disclose the area request and never package standard OSM raster tiles offline.
