@@ -1,7 +1,7 @@
 - [Browser toolchain compatibility](browser-toolchain.md) — Vite production transforms and dev dependency prebundling use separate targets; a successful build does not confirm dev startup.
 - [Browser regression test setup](browser-regression-tests.md) — install Playwright artifact-scoped and hold async fixture requests explicitly when asserting transient UI states.
 - [Leaflet initial view](leaflet-initial-view.md) — initialise map bounds before adding mixed vector overlays; an initialization error is not a tile-provider outage.
-- [Workspace packages](workspace-package-installation.md) — the generic installer targets the root; keep app dependencies artifact-scoped when recovering from its workspace guard.
+- [Workspace package installs](workspace-package-installation.md) — keep dependencies artifact-scoped, and reconcile frozen-lockfile override mismatches using workspace settings.
 - [Owner setup confirmation](owner-setup-confirmation.md) — guided Supabase dashboard setup is owner-confirmed; do not confuse this with verified live attraction mutations.
 - [Map readiness](map-readiness.md) — cached loaders can hide loading/ready transitions through React batching; dependent overlays must observe the replacement map.
 - [Leaflet tile retry](leaflet-tile-retry.md) — background tile retries redraw the existing layer; distinguish tile events from map recreation in lifecycle checks.
