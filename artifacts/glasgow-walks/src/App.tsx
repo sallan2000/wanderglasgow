@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
 import { ArrowDown, ArrowLeft, ArrowRight, Clock3, LocateFixed, MapPin, Navigation, Route as RouteIcon, X } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
 import { MapTileNotice, useMapTiles } from './map-tiles';
@@ -13,6 +14,7 @@ import EmailWalk from './EmailWalk';
 import { curatedEmailWalk } from './walk-email';
 import ItineraryActions from './ItineraryActions';
 import { curatedItinerary } from './itinerary-snapshot';
+import { isTheme, readThemePersistence, setThemePersistence } from './lib/theme';
 
 
 const themeCount = (theme: Theme, tours: Tour[]) => {
@@ -40,6 +42,8 @@ function locationMessage(status: GeoStatus, message: string) {
 }
 
 function PublicApp() {
+  const { theme: preferredTheme } = useTheme();
+  const [rememberTheme, setRememberTheme] = useState(readThemePersistence);
   const categoryList = useAttractionCategories();
   const curated = useCuratedWalks();
   const tours = curated.walks;
@@ -54,6 +58,11 @@ function PublicApp() {
   const [toast, setToast] = useState('');
   const tourList = useMemo(() => tours.filter((tour) => activeTheme === 'All' || tour.theme === activeTheme), [activeTheme, tours]);
   const nearbyRef = useRef<HTMLDivElement>(null);
+
+  const handleRememberThemeChange = (remember: boolean) => {
+    setRememberTheme(remember);
+    setThemePersistence(remember, isTheme(preferredTheme) ? preferredTheme : 'system');
+  };
 
   useEffect(() => {
     setSelected(current => {
@@ -117,7 +126,7 @@ function PublicApp() {
           <button onClick={() => { setPlannerEntry({ mode: 'theme' }); document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' }); }} data-testid="nav-themes">Explore by category</button>
           <button className="nav-pill" onClick={() => document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })} data-testid="nav-planner">Plan my walk</button>
         </nav>
-        <DarkModeToggle />
+        <DarkModeToggle rememberTheme={rememberTheme} onRememberThemeChange={handleRememberThemeChange} />
       </header>
 
       <section className="hero" id="top">
@@ -214,6 +223,18 @@ function PublicApp() {
         <span>Made for the city. Best enjoyed at your own pace.</span>
         <a href={`${import.meta.env.BASE_URL}admin`} data-testid="link-admin">Admin sign in</a>
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" data-testid="link-osm-credit">Map data © OpenStreetMap contributors</a>
+        <div className="privacy-cookie-notice" data-testid="text-privacy-cookie-notice">
+          <p>
+            This site doesn’t use advertising or analytics trackers. The selected theme is saved in this browser only while “Remember theme on this device” is on; switching it off deletes the saved theme and stops future saves.
+          </p>
+          <details>
+            <summary data-testid="toggle-privacy-details">More privacy details</summary>
+            <div className="privacy-cookie-details">
+              <p>The remember setting is also stored in this browser so we can respect your choice. Admin sign-in stores an administrator session here.</p>
+              <p>Google Fonts, Supabase, and OpenStreetMap services receive requests needed for fonts, walk data, maps, and routing. A routed walk sends your chosen origin to the routing provider; GPS coordinates are included only if you choose GPS routing. Optional itinerary email uses Cloudflare’s security check and Resend. Providers may receive technical request data such as your IP address.</p>
+            </div>
+          </details>
+        </div>
       </footer>
 
       {selected && <TourDetail tour={selected} onClose={() => setSelected(null)} notify={notify} />}
