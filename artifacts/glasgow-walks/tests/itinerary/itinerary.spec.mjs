@@ -40,7 +40,7 @@ test('curated download embeds a street map and opens offline without invented pa
   expect(file.html).not.toContain('data-route-line="true"');
   expect(file.html).not.toContain('55.862500'); // GPS fixture coordinate
   expect(requests).toHaveLength(1);
-  expect(requests[0]).toContain('overpass-api.de/api/interpreter');
+  expect(requests[0]).toContain('overpass.osm.ch/api/interpreter');
   expect(state.mapRequests).toHaveLength(1);
   expect(state.mapRequests[0].query).toContain('way["highway"]');
   expect(state.mapRequests[0].query).not.toContain('A published story');
@@ -53,6 +53,18 @@ test('curated download embeds a street map and opens offline without invented pa
   await expect(offline.page.locator('main')).toContainText('Curated walking estimates: 2.10 km');
   expect(offline.requests).toEqual([]); expect(offline.dialogs).toEqual([]);
   await offline.context.close();
+  state.assertClean();
+});
+
+test('curated download falls back when the primary OpenStreetMap data service cannot be reached', async ({ page }, testInfo) => {
+  const state = await isolateEmail(page);
+  state.failPrimaryMap = true;
+  await page.goto('/tests/email/index.html');
+  await page.getByTestId('card-tour-fixture-curated').click();
+  const file = await download(page, testInfo, 'curated-fallback.html');
+  expect(file.html).toContain('<svg');
+  expect(state.mapRequests.map(request => request.host)).toEqual(['overpass.osm.ch', 'overpass-api.de']);
+  expect(state.mapRequests.every(request => !request.query.includes('A published story'))).toBe(true);
   state.assertClean();
 });
 
@@ -84,7 +96,7 @@ test('calculated download preserves route, stop order and safely escaped access 
   const file = await download(page, testInfo, 'planned.html');
   expect(state.routingRequests).toHaveLength(prior);
   expect(requests).toHaveLength(1);
-  expect(requests[0]).toContain('overpass-api.de/api/interpreter');
+  expect(requests[0]).toContain('overpass.osm.ch/api/interpreter');
   expect(state.mapRequests).toHaveLength(1);
   expect(state.mapRequests[0].query).not.toContain('Story one');
   expect(state.sends).toHaveLength(0);

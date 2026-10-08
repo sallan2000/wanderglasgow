@@ -31,7 +31,7 @@ window.turnstile = {
 
 export async function isolateEmail(page) {
   const state = { sends: [], securityLoads: 0, unexpected: [], errors: [], send: null, securityFails: false,
-    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [], mapRequests: [] };
+    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [], mapRequests: [], failPrimaryMap: false };
   let tablePoints, distances;
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => {
@@ -76,15 +76,17 @@ export async function isolateEmail(page) {
         }] } });
       }
     }
-    if (u.hostname === 'overpass-api.de' && u.pathname === '/api/interpreter') {
-      const query = u.searchParams.get('data') ?? '';
+    if (['overpass.osm.ch', 'overpass-api.de'].includes(u.hostname) && u.pathname === '/api/interpreter') {
+      const body = route.request().postData() ?? '';
+      const query = new URLSearchParams(body).get('data') ?? u.searchParams.get('data') ?? '';
       const match = query.match(/\((-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+)\)/);
       if (!match) {
         state.unexpected.push('invalid-map-bounds');
         return route.fulfill({ status: 400, body: 'Missing map bounds' });
       }
       const [south, west, north, east] = match[1].split(',').map(Number);
-      state.mapRequests.push({ query, bounds: { south, west, north, east } });
+      state.mapRequests.push({ host: u.hostname, query, bounds: { south, west, north, east } });
+      if (u.hostname === 'overpass.osm.ch' && state.failPrimaryMap) return route.abort('failed');
       const lat = (south + north) / 2, lon = (west + east) / 2;
       const latSpan = north - south, lonSpan = east - west;
       return route.fulfill({
