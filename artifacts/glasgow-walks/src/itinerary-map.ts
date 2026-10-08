@@ -29,6 +29,14 @@ const MAX_TOTAL_POINTS = 200_000;
 const MAX_RESPONSE_CHARS = 12_000_000;
 const mapCache = new Map<string, { snapshot: ItineraryMapSnapshot; expiresAt: number }>();
 
+const ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
+
 const validPosition = (point: Position) => point && Number.isFinite(point.lat) &&
   Number.isFinite(point.lon) && Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
 
@@ -205,39 +213,45 @@ export async function fetchItineraryMapSnapshot(
 
   const bbox = [bounds.south, bounds.west, bounds.north, bounds.east].map(value => value.toFixed(6)).join(',');
   const query = `[out:json][timeout:25][maxsize:12000000];(way["highway"](${bbox});way["waterway"~"^(river|canal|stream)$"](${bbox});way["natural"="water"](${bbox});way["leisure"="park"](${bbox});way["landuse"~"^(grass|meadow|forest|recreation_ground|reservoir)$"](${bbox}););out geom;`;
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal?.aborted) abort();
   else signal?.addEventListener('abort', abort, { once: true });
   const timeout = setTimeout(abort, 30_000);
 
-  try {
+  const headers = {
+    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+    'Accept': 'application/json, text/plain, */*',
+  };
+
+  let lastError: unknown;
+  for (const baseUrl of ENDPOINTS) {
+    const url = `${baseUrl}?data=${encodeURIComponent(query)}`;
     const response = await fetch(url, {
+      method: 'POST',
+      headers,
       signal: controller.signal,
       credentials: 'omit',
       referrerPolicy: 'strict-origin-when-cross-origin',
     });
-    if (!response.ok) throw new Error(`Map service returned ${response.status}.`);
-    const text = await response.text();
-    if (text.length > MAX_RESPONSE_CHARS) {
-      throw new Error('This area has too much map detail for a printable itinerary. Try a shorter walk.');
+    if (response.status === 200) {
+      const text = await response.text();
+      if (text.length > MAX_RESPONSE_CHARS) {
+        throw new Error('This area has too much map detail for a printable itinerary. Try a shorter walk.');
+      }
+      const snapshot = parseMapSnapshot(JSON.parse(text), bounds);
+      validateItineraryMapSnapshot(snapshot);
+      mapCache.set(key, { snapshot, expiresAt: Date.now() + MAP_CACHE_TTL });
+      if (mapCache.size > 8) {
+        const oldest = mapCache.keys().next().value;
+        if (oldest) mapCache.delete(oldest);
+      }
+      return snapshot;
     }
-    const snapshot = parseMapSnapshot(JSON.parse(text), bounds);
-    validateItineraryMapSnapshot(snapshot);
-    mapCache.set(key, { snapshot, expiresAt: Date.now() + MAP_CACHE_TTL });
-    if (mapCache.size > 8) {
-      const oldest = mapCache.keys().next().value;
-      if (oldest) mapCache.delete(oldest);
-    }
-    return snapshot;
-  } catch (error) {
-    if (signal?.aborted) throw new DOMException('Map request cancelled.', 'AbortError');
-    if (error instanceof Error && error.message.startsWith('This area has too much map detail')) throw error;
-    if (error instanceof Error && error.message.startsWith('OpenStreetMap')) throw error;
-    throw new Error('The OpenStreetMap street map could not be loaded. Check your connection and try again.');
-  } finally {
-    clearTimeout(timeout);
-    signal?.removeEventListener('abort', abort);
+    lastError = new Error(`Map service returned ${response.status}`);
   }
+
+  if (signal?.aborted) throw new DOMException('Map request cancelled.', 'AbortError');
+  throw lastError ?? new Error('The OpenStreetMap street map could not be loaded. Check your connection and try again.');
 }
