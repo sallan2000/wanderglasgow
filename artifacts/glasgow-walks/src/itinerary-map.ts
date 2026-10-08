@@ -29,13 +29,7 @@ const MAX_TOTAL_POINTS = 200_000;
 const MAX_RESPONSE_CHARS = 12_000_000;
 const mapCache = new Map<string, { snapshot: ItineraryMapSnapshot; expiresAt: number }>();
 
-const ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-];
+const ENDPOINTS = ['https://overpass-api.de/api/interpreter'];
 
 const validPosition = (point: Position) => point && Number.isFinite(point.lat) &&
   Number.isFinite(point.lon) && Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
