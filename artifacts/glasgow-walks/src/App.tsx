@@ -15,7 +15,7 @@ import { curatedEmailWalk } from './walk-email';
 import ItineraryActions from './ItineraryActions';
 import { curatedItinerary } from './itinerary-snapshot';
 import { isTheme, readThemePersistence, setThemePersistence } from './lib/theme';
-import { buildGoogleMapsUrl } from './route-url';
+import type { NavigationPoint } from './route-url';
 import GoogleMapsNavigationLink from './GoogleMapsNavigationLink';
 
 
@@ -258,9 +258,9 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
   const [routeInfo, setRouteInfo] = useState('');
   const routeRun = useRef(0);
   const routeAbort = useRef<AbortController | null>(null);
-  const googleMapsUrl = buildGoogleMapsUrl([
+  const googleMapsPoints: NavigationPoint[] = [
     ...tour.stops.map(stop => ({ lat: stop.lat, lon: stop.lon, name: stop.name })),
-  ]);
+  ];
 
   useEffect(() => {
     let active = true;
@@ -388,7 +388,7 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
           <p className="map-credit">Routing sends the tour stops—and your coordinates only if you use GPS—to the independent OpenStreetMap walking service. Opening hours and access can change; check locally before entering attractions.</p>
         </div>
         <div className="route-actions">
-          <GoogleMapsNavigationLink href={googleMapsUrl} testId="button-open-tour-navigation" />
+          <GoogleMapsNavigationLink points={googleMapsPoints} testId="button-open-tour-navigation" />
         </div>
         <h3 className="stops-heading">Your stops, in order</h3>
         {tour.stops.map((stop, index) => (

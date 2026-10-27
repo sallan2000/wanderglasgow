@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["tests/email/harness.tsx"],
+  "include": ["tests/email/harness.tsx", "tests/email/navigation-fixture.tsx"],
   "exclude": ["node_modules", "dist"]
 }

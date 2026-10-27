@@ -11,6 +11,16 @@ export interface NavigationPoint extends Coordinate {
   name?: string;
 }
 
+export const GOOGLE_MAPS_MOBILE_MAX_WAYPOINTS = 3;
+export const GOOGLE_MAPS_MOBILE_MAX_ROUTE_POINTS = GOOGLE_MAPS_MOBILE_MAX_WAYPOINTS + 2;
+
+export interface GoogleMapsRouteSegment {
+  points: NavigationPoint[];
+  startIndex: number;
+  endIndex: number;
+  url: string;
+}
+
 function formatCoordinate(point: Coordinate): string {
   return `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`;
 }
@@ -38,4 +48,29 @@ export function buildGoogleMapsUrl(points: NavigationPoint[]): string {
     googleParams.set('waypoints', waypoints.join('|'));
   }
   return `https://www.google.com/maps/dir/?${googleParams.toString()}`;
+}
+
+export function buildGoogleMapsRouteSegments(points: NavigationPoint[]): GoogleMapsRouteSegment[] {
+  if (!Array.isArray(points) || points.length <= GOOGLE_MAPS_MOBILE_MAX_ROUTE_POINTS) {
+    return [];
+  }
+
+  const segments: GoogleMapsRouteSegment[] = [];
+  let startIndex = 0;
+  while (startIndex < points.length - 1) {
+    const endIndex = Math.min(
+      startIndex + GOOGLE_MAPS_MOBILE_MAX_ROUTE_POINTS - 1,
+      points.length - 1,
+    );
+    const segmentPoints = points.slice(startIndex, endIndex + 1);
+    segments.push({
+      points: segmentPoints,
+      startIndex,
+      endIndex,
+      url: buildGoogleMapsUrl(segmentPoints),
+    });
+    // Reuse the previous segment's destination as the next segment's origin.
+    startIndex = endIndex;
+  }
+  return segments;
 }

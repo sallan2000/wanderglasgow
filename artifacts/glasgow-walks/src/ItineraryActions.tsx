@@ -3,7 +3,7 @@ import { Download, Printer } from 'lucide-react';
 import type { ItinerarySnapshot } from './itinerary-snapshot';
 import { itineraryDocument, itineraryFilename } from './itinerary-document';
 import { fetchItineraryMapSnapshot } from './itinerary-map';
-import { buildGoogleMapsUrl, type NavigationPoint } from './route-url';
+import type { NavigationPoint } from './route-url';
 import GoogleMapsNavigationLink from './GoogleMapsNavigationLink';
 import './itinerary-actions.css';
 
@@ -148,7 +148,6 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
   if (itinerary.kind === 'planned') {
     navigationPoints.unshift({ lat: itinerary.start.lat, lon: itinerary.start.lon });
   }
-  const googleMapsUrl = buildGoogleMapsUrl(navigationPoints);
   return (
     <div className="itinerary-actions" data-testid="section-itinerary-actions">
       <h4>Print or keep this itinerary</h4>
@@ -161,7 +160,7 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
       <div className="itinerary-buttons">
         <button ref={printBtn} type="button" className="button-secondary" onClick={print} disabled={busy} data-testid="button-print-itinerary"><Printer size={15} /> {printing ? 'Preparing map…' : 'Print itinerary'}</button>
         <button ref={downloadBtn} type="button" className="button-secondary" onClick={download} disabled={busy} data-testid="button-download-itinerary"><Download size={15} /> {downloading ? 'Preparing map…' : 'Download HTML'}</button>
-        <GoogleMapsNavigationLink href={googleMapsUrl} testId="button-open-itinerary-navigation" />
+        <GoogleMapsNavigationLink points={navigationPoints} testId="button-open-itinerary-navigation" />
       </div>
       <div role="status" aria-live="polite" className="itinerary-status" data-testid="status-itinerary">{status}</div>
       {error && <div role="alert" className="itinerary-error" data-testid="status-itinerary-error">{error}</div>}

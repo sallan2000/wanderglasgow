@@ -16,3 +16,10 @@
 }
 .itinerary-actions .navigation-button:hover { background: #24574f; }
 .itinerary-actions .navigation-button[disabled] { opacity: 0.45; cursor: not-allowed; }
+.google-maps-navigation { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.google-maps-navigation .navigation-button { display: inline-flex; align-items: center; gap: 7px; }
+.google-maps-route-segments { max-width: 100%; font-size: 13px; }
+.google-maps-route-segments p { margin: 0 0 6px; line-height: 1.45; }
+.google-maps-route-segments ol { display: grid; gap: 6px; margin: 0; padding-left: 24px; }
+.google-maps-route-segments a { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--ink); font-weight: 650; }
+.google-maps-route-segments a:focus-visible { outline: 3px solid #d86543; outline-offset: 3px; }
