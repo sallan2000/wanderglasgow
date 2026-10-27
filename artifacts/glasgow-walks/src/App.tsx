@@ -226,13 +226,13 @@ function PublicApp() {
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" data-testid="link-osm-credit">Map data © OpenStreetMap contributors</a>
         <div className="privacy-cookie-notice" data-testid="text-privacy-cookie-notice">
           <p>
-            This site doesn’t use advertising or analytics trackers. The selected theme is saved in this browser only while “Remember theme on this device” is on; switching it off deletes the saved theme and stops future saves.
+            Your theme choice is saved in this browser only while “Remember theme on this device” is on. Turn it off to remove the saved choice and stop future saves.
           </p>
           <details>
-            <summary data-testid="toggle-privacy-details">More privacy details</summary>
+            <summary data-testid="toggle-privacy-details">View privacy details</summary>
             <div className="privacy-cookie-details">
-              <p>The remember setting is also stored in this browser so we can respect your choice. Admin sign-in stores an administrator session here.</p>
-              <p>Google Fonts, Supabase, and OpenStreetMap services receive requests needed for fonts, walk data, maps, and routing. Printing or downloading an itinerary requests the approximate walk area from OpenStreetMap’s map-data service; it does not send the file or stop stories. A routed walk sends your chosen origin to the routing provider; GPS coordinates are included only if you choose GPS routing. Optional itinerary email uses Cloudflare’s security check and Resend. Providers may receive technical request data such as your IP address.</p>
+              <p>This site does not use advertising or analytics trackers. If you choose to remember your theme, that choice is stored in this browser.</p>
+              <p>We use Google Fonts for type, Supabase for walk information, and OpenStreetMap services for maps and routes. Printing or downloading a walk sends only the approximate map area to OpenStreetMap—not your itinerary or its stories. A route request sends your chosen starting point to the routing service; GPS coordinates are included only if you choose GPS. Optional itinerary emails are checked by Cloudflare and sent by Resend. These providers may receive technical information such as your IP address.</p>
             </div>
           </details>
         </div>
