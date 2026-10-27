@@ -1,5 +1,6 @@
-// Builds navigation-app directions URLs from an ordered list of coordinates.
-// Entry 0 is the origin (turn-by-turn start); entries 1..n-1 are waypoints in order.
+// Builds directions URLs from ordered places. Named attractions are searched by
+// name instead of coordinates, which can resolve to an unrelated nearby business.
+// Entry 0 is the origin; entries 1..n-1 are destinations and waypoints in order.
 // Apple Maps:  /directions?source=&destination=&waypoint=...&waypoint=...&mode=walking
 // Google Maps: /dir/?api=1&origin=&destination=&waypoints=...&travelmode=walking
 
@@ -8,8 +9,16 @@ export interface Coordinate {
   lon: number;
 }
 
+export interface NavigationPoint extends Coordinate {
+  name?: string;
+}
+
 function formatCoordinate(point: Coordinate): string {
   return `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`;
+}
+
+function formatNavigationPoint(point: NavigationPoint): string {
+  return point.name?.trim() || formatCoordinate(point);
 }
 
 export interface NavigationUrls {
@@ -17,14 +26,14 @@ export interface NavigationUrls {
   googleMapsUrl: string;
 }
 
-export function buildNavigationUrls(coordinates: { lat: number; lon: number }[]): NavigationUrls {
-  if (!Array.isArray(coordinates) || coordinates.length < 2) {
+export function buildNavigationUrls(points: NavigationPoint[]): NavigationUrls {
+  if (!Array.isArray(points) || points.length < 2) {
     return { appleMapsUrl: '', googleMapsUrl: '' };
   }
 
-  const origin = formatCoordinate(coordinates[0]);
-  const destination = formatCoordinate(coordinates[coordinates.length - 1]);
-  const waypoints = coordinates.slice(1, -1).map(formatCoordinate);
+  const origin = formatNavigationPoint(points[0]);
+  const destination = formatNavigationPoint(points[points.length - 1]);
+  const waypoints = points.slice(1, -1).map(formatNavigationPoint);
 
   const appleParams = new URLSearchParams({
     saddr: origin,

@@ -15,7 +15,7 @@ import { curatedEmailWalk } from './walk-email';
 import ItineraryActions from './ItineraryActions';
 import { curatedItinerary } from './itinerary-snapshot';
 import { isTheme, readThemePersistence, setThemePersistence } from './lib/theme';
-import { buildNavigationUrls, type Coordinate } from './route-url';
+import { buildNavigationUrls } from './route-url';
 
 
 const themeCount = (theme: Theme, tours: Tour[]) => {
@@ -257,12 +257,9 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
   const [routeInfo, setRouteInfo] = useState('');
   const routeRun = useRef(0);
   const routeAbort = useRef<AbortController | null>(null);
-  const { appleMapsUrl, googleMapsUrl } = buildNavigationUrls(
-    [
-      { lat: tour.stops[0].lat, lon: tour.stops[0].lon },
-      ...tour.stops.map(stop => ({ lat: stop.lat, lon: stop.lon })),
-    ],
-  );
+  const { appleMapsUrl, googleMapsUrl } = buildNavigationUrls([
+    ...tour.stops.map(stop => ({ lat: stop.lat, lon: stop.lon, name: stop.name })),
+  ]);
   const openTourNavigation = () => {
     if (!appleMapsUrl || !googleMapsUrl) return;
     window.open(appleMapsUrl, '_blank', 'noopener,noreferrer');

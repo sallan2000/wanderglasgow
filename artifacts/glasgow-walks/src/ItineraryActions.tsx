@@ -3,7 +3,7 @@ import { Download, Navigation, Printer } from 'lucide-react';
 import type { ItinerarySnapshot } from './itinerary-snapshot';
 import { itineraryDocument, itineraryFilename } from './itinerary-document';
 import { fetchItineraryMapSnapshot } from './itinerary-map';
-import { buildNavigationUrls } from './route-url';
+import { buildNavigationUrls, type NavigationPoint } from './route-url';
 import './itinerary-actions.css';
 
 export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySnapshot }) {
@@ -139,11 +139,15 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
 
   const planned = itinerary.kind === 'planned';
   const busy = printing || downloading;
-  const coordinates = [
-    { lat: itinerary.start.lat, lon: itinerary.start.lon },
-    ...itinerary.stops.map(stop => ({ lat: stop.lat, lon: stop.lon })),
-  ];
-  const { appleMapsUrl, googleMapsUrl } = buildNavigationUrls(coordinates);
+  const navigationPoints: NavigationPoint[] = itinerary.stops.map(stop => ({
+    lat: stop.lat,
+    lon: stop.lon,
+    name: stop.name,
+  }));
+  if (itinerary.kind === 'planned') {
+    navigationPoints.unshift({ lat: itinerary.start.lat, lon: itinerary.start.lon });
+  }
+  const { appleMapsUrl, googleMapsUrl } = buildNavigationUrls(navigationPoints);
   const openNavigation = () => {
     if (!appleMapsUrl || !googleMapsUrl) return;
     window.open(appleMapsUrl, '_blank', 'noopener,noreferrer');
