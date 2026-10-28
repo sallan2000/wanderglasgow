@@ -1,9 +1,11 @@
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Navigation } from 'lucide-react';
 import {
   buildGoogleMapsRouteSegments,
   buildGoogleMapsUrl,
   type NavigationPoint,
 } from './route-url';
+import { getPosition } from './browser-helpers';
 
 type Props = {
   points: NavigationPoint[];
@@ -19,6 +21,21 @@ function pointLabel(point: NavigationPoint, index: number, lastIndex: number): s
 }
 
 export default function GoogleMapsNavigationLink({ points, testId }: Props) {
+  const openInGoogleMaps = async (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    try {
+      const position = await getPosition();
+      const location: NavigationPoint = {
+        lat: position.lat,
+        lon: position.lon,
+      };
+      const url = buildGoogleMapsUrl([location, ...points]);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      window.open(buildGoogleMapsUrl(points), '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const href = buildGoogleMapsUrl(points);
   const segments = buildGoogleMapsRouteSegments(points);
   const content = (
@@ -48,6 +65,7 @@ export default function GoogleMapsNavigationLink({ points, testId }: Props) {
           rel="noopener noreferrer"
           data-testid={testId}
           aria-label="Open walk in Google Maps"
+          onClick={openInGoogleMaps}
         >
           {content}
         </a>

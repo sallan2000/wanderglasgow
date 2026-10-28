@@ -7,7 +7,7 @@ import ts from 'typescript';
 
 const dir = await mkdtemp(join(tmpdir(), 'curated-walks-'));
 try {
-  for (const name of ['tours', 'walk-validation', 'walk-store']) {
+  for (const name of ['tours', 'walk-validation', 'walk-store', 'access-details']) {
     const source = await readFile(resolve('src', `${name}.ts`), 'utf8');
     await writeFile(join(dir, `${name}.mjs`), ts.transpileModule(source, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
