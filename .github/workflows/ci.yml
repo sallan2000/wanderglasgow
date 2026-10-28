@@ -20,12 +20,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level high
-        # Report vulnerabilities without failing the build.
-        # Critical issues should still be addressed, but high-severity
-        # findings in transitive dependencies of the broader workspace
-        # (connectors-sdk, drizzle, express, etc.) should not block CI.
-        continue-on-error: true
+      - name: Security audit
+        run: pnpm audit --audit-level high
+        # Security audit: fail the build on high-severity findings.
 
   typecheck:
     name: Typecheck
