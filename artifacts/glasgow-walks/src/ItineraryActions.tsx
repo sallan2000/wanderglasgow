@@ -43,6 +43,29 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
     requestAnimationFrame(() => printBtn.current?.focus());
   };
 
+  const retryMap = async () => {
+    setError(''); setStatus('');
+    setDownloading(true);
+    let html: string | null = null;
+    try {
+      html = await prepareDocument();
+    } catch (cause) {
+      if (mounted.current && !(cause instanceof DOMException && cause.name === 'AbortError')) {
+        setError(cause instanceof Error ? cause.message : 'The street map could not be loaded. Check your connection and try again.');
+      }
+      return;
+    }
+    if (!html || !mounted.current) { if (mounted.current) setDownloading(false); return; }
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = itineraryFilename(itinerary); a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    setStatus('Map loaded — download ready.');
+    setDownloading(false);
+    requestAnimationFrame(() => downloadBtn.current?.focus());
+  };
+
   const prepareDocument = async () => {
     mapRequest.current?.abort();
     const controller = new AbortController();
@@ -163,7 +186,19 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
         <GoogleMapsNavigationLink points={navigationPoints} testId="button-open-itinerary-navigation" />
       </div>
       <div role="status" aria-live="polite" className="itinerary-status" data-testid="status-itinerary">{status}</div>
-      {error && <div role="alert" className="itinerary-error" data-testid="status-itinerary-error">{error}</div>}
+      {error && (
+        <div role="alert" className="itinerary-error" data-testid="status-itinerary-error">
+          {error}
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={retryMap}
+            data-testid="button-retry-itinerary-map"
+          >
+            Retry map & generate
+          </button>
+        </div>
+      )}
     </div>
   );
 }

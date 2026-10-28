@@ -76,7 +76,7 @@ export async function isolateEmail(page) {
         }] } });
       }
     }
-    if (['overpass.private.coffee', 'overpass-api.de'].includes(u.hostname) && u.pathname === '/api/interpreter') {
+    if (['overpass.private.coffee', 'overpass-api.de', 'overpass.osm.ch'].includes(u.hostname) && u.pathname === '/api/interpreter') {
       const body = route.request().postData() ?? '';
       const query = new URLSearchParams(body).get('data') ?? u.searchParams.get('data') ?? '';
       const match = query.match(/\((-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+)\)/);

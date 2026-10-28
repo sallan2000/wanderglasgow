@@ -34,6 +34,7 @@ const mapCache = new Map<string, { snapshot: ItineraryMapSnapshot; expiresAt: nu
 const ENDPOINTS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
 ];
 
 const validPosition = (point: Position) => point && Number.isFinite(point.lat) &&
