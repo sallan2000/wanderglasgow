@@ -23,7 +23,8 @@ try {
   const headers = await readFile('public/_headers', 'utf8');
   const csp = headers.split(/\r?\n/).find(line => line.includes('Content-Security-Policy:')) ?? '';
   const connectSources = csp.match(/\bconnect-src\s+([^;]+)/)?.[1].split(/\s+/) ?? [];
-  assert.ok(connectSources.includes('https://overpass-api.de'), 'The site CSP permits the itinerary map request'); checks++;
+  assert.ok(connectSources.includes('https://overpass.private.coffee'), 'The site CSP permits the primary itinerary map request'); checks++;
+  assert.ok(connectSources.includes('https://overpass-api.de'), 'The site CSP permits the itinerary map fallback'); checks++;
   const stop = { name: '<script>alert("name")</script>', place: 'City & centre', lat: 55.86, lon: -4.25,
     story: '</p><img src="https://evil.invalid" onerror="alert(1)">\nLine two' };
   const originalName = stop.name;
@@ -51,21 +52,23 @@ try {
   equal(bounds.north > 55.861, true);
   const originalFetch = globalThis.fetch;
   let requestedUrl = '';
+  let requestedBody = '';
   const mapElements = [
     { type: 'way', id: 1, tags: { highway: 'primary', name: 'Union Street' }, geometry: [{ lat: 55.858, lon: -4.253 }, { lat: 55.860, lon: -4.250 }] },
     { type: 'way', id: 2, tags: { leisure: 'park' }, geometry: [{ lat: 55.859, lon: -4.251 }, { lat: 55.859, lon: -4.250 }, { lat: 55.860, lon: -4.250 }, { lat: 55.859, lon: -4.251 }] },
     { type: 'way', id: 3, tags: { waterway: 'river' }, geometry: [{ lat: 55.859, lon: -4.252 }, { lat: 55.860, lon: -4.252 }] },
     { type: 'way', id: 4, tags: { highway: 'secondary', name: '<unsafe>' }, geometry: [{ lat: 55.860, lon: -4.251 }, { lat: 55.861, lon: -4.249 }] },
   ];
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, init) => {
     requestedUrl = String(url);
+    requestedBody = String(init?.body ?? '');
     return new Response(JSON.stringify({ elements: mapElements }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   const map = await fetchItineraryMapSnapshot(planned);
   equal(map.features.length, 4);
   equal(map.features[0].name, 'Union Street');
-  equal(new URL(requestedUrl).hostname, 'overpass-api.de');
-  const mapQuery = new URL(requestedUrl).searchParams.get('data');
+   equal(new URL(requestedUrl).hostname, 'overpass.private.coffee');
+  const mapQuery = new URLSearchParams(requestedBody).get('data') ?? new URL(requestedUrl).searchParams.get('data');
   const boundsMatch = mapQuery.match(/\(([-0-9.]+,[-0-9.]+,[-0-9.]+,[-0-9.]+)\)/);
   assert.ok(boundsMatch, 'The map request contains only a bounded area query'); checks++;
   const [south, west, north, east] = boundsMatch[1].split(',').map(Number);

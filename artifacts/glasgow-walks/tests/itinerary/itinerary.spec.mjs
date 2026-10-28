@@ -40,7 +40,7 @@ test('curated download embeds a street map and opens offline without invented pa
   expect(file.html).not.toContain('data-route-line="true"');
   expect(file.html).not.toContain('55.862500'); // GPS fixture coordinate
   expect(requests).toHaveLength(1);
-  expect(requests[0]).toContain('overpass.osm.ch/api/interpreter');
+  expect(requests[0]).toContain('overpass.private.coffee/api/interpreter');
   expect(state.mapRequests).toHaveLength(1);
   expect(state.mapRequests[0].query).toContain('way["highway"]');
   expect(state.mapRequests[0].query).not.toContain('A published story');
@@ -63,8 +63,19 @@ test('curated download falls back when the primary OpenStreetMap data service ca
   await page.getByTestId('card-tour-fixture-curated').click();
   const file = await download(page, testInfo, 'curated-fallback.html');
   expect(file.html).toContain('<svg');
-  expect(state.mapRequests.map(request => request.host)).toEqual(['overpass.osm.ch', 'overpass-api.de']);
+  expect(state.mapRequests.map(request => request.host)).toEqual(['overpass.private.coffee', 'overpass-api.de']);
   expect(state.mapRequests.every(request => !request.query.includes('A published story'))).toBe(true);
+  state.assertClean();
+});
+
+test('an empty map response falls back to the next OpenStreetMap data service', async ({ page }, testInfo) => {
+  const state = await isolateEmail(page);
+  state.emptyPrimaryMap = true;
+  await page.goto('/tests/email/index.html');
+  await page.getByTestId('card-tour-fixture-curated').click();
+  const file = await download(page, testInfo, 'curated-empty-map-fallback.html');
+  expect(file.html).toContain('<svg');
+  expect(state.mapRequests.map(request => request.host)).toEqual(['overpass.private.coffee', 'overpass-api.de']);
   state.assertClean();
 });
 
@@ -96,7 +107,7 @@ test('calculated download preserves route, stop order and safely escaped access 
   const file = await download(page, testInfo, 'planned.html');
   expect(state.routingRequests).toHaveLength(prior);
   expect(requests).toHaveLength(1);
-  expect(requests[0]).toContain('overpass.osm.ch/api/interpreter');
+  expect(requests[0]).toContain('overpass.private.coffee/api/interpreter');
   expect(state.mapRequests).toHaveLength(1);
   expect(state.mapRequests[0].query).not.toContain('Story one');
   expect(state.sends).toHaveLength(0);

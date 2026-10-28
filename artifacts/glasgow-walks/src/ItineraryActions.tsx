@@ -155,7 +155,7 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
         {planned
           ? 'This copy includes your chosen starting coordinates and calculated route, which may include your GPS location.'
           : 'This editorial copy shows the listed start and stop positions without a GPS connection or calculated route.'}
-        {' '}To add the street map, OpenStreetMap receives the approximate walk area and standard request information; it does not receive the itinerary file or stop stories. The completed HTML embeds the map and stays on your device unless you share it. Your browser Print can save a PDF. There is no live navigation and no guarantee of access; check locally.
+        {' '}To add the street map, the selected OpenStreetMap data service receives the approximate walk area and standard request information; it does not receive the itinerary file or stop stories. The completed HTML embeds the map and stays on your device unless you share it. Your browser Print can save a PDF. There is no live navigation and no guarantee of access; check locally.
       </p>
       <div className="itinerary-buttons">
         <button ref={printBtn} type="button" className="button-secondary" onClick={print} disabled={busy} data-testid="button-print-itinerary"><Printer size={15} /> {printing ? 'Preparing map…' : 'Print itinerary'}</button>

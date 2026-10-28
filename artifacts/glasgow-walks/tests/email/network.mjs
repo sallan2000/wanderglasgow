@@ -31,7 +31,7 @@ window.turnstile = {
 
 export async function isolateEmail(page) {
   const state = { sends: [], securityLoads: 0, unexpected: [], errors: [], send: null, securityFails: false,
-    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [], mapRequests: [], failPrimaryMap: false };
+    catalogue: null, walkingMatrix: null, routeDistanceOverride: null, routingRequests: [], mapRequests: [], failPrimaryMap: false, emptyPrimaryMap: false };
   let tablePoints, distances;
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => {
@@ -76,7 +76,7 @@ export async function isolateEmail(page) {
         }] } });
       }
     }
-    if (['overpass.osm.ch', 'overpass-api.de'].includes(u.hostname) && u.pathname === '/api/interpreter') {
+    if (['overpass.private.coffee', 'overpass-api.de'].includes(u.hostname) && u.pathname === '/api/interpreter') {
       const body = route.request().postData() ?? '';
       const query = new URLSearchParams(body).get('data') ?? u.searchParams.get('data') ?? '';
       const match = query.match(/\((-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+)\)/);
@@ -86,7 +86,10 @@ export async function isolateEmail(page) {
       }
       const [south, west, north, east] = match[1].split(',').map(Number);
       state.mapRequests.push({ host: u.hostname, query, bounds: { south, west, north, east } });
-      if (u.hostname === 'overpass.osm.ch' && state.failPrimaryMap) return route.abort('failed');
+      if (u.hostname === 'overpass.private.coffee' && state.failPrimaryMap) return route.abort('failed');
+      if (u.hostname === 'overpass.private.coffee' && state.emptyPrimaryMap) {
+        return route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: '{"elements":[]}' });
+      }
       const lat = (south + north) / 2, lon = (west + east) / 2;
       const latSpan = north - south, lonSpan = east - west;
       return route.fulfill({

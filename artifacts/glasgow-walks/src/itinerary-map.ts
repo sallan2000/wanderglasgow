@@ -27,11 +27,12 @@ const MAX_MAP_AREA_KM2 = 200;
 const MAX_FEATURES = 20_000;
 const MAX_TOTAL_POINTS = 200_000;
 const MAX_RESPONSE_CHARS = 12_000_000;
-const ENDPOINT_TIMEOUT_MS = 12_000;
+// Overpass permits up to 25 seconds for this query; allow a small response margin.
+const ENDPOINT_TIMEOUT_MS = 28_000;
 const mapCache = new Map<string, { snapshot: ItineraryMapSnapshot; expiresAt: number }>();
 
 const ENDPOINTS = [
-  'https://overpass.osm.ch/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ];
 

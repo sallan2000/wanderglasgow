@@ -233,7 +233,7 @@ function PublicApp() {
             <summary data-testid="toggle-privacy-details">View privacy details</summary>
             <div className="privacy-cookie-details">
               <p>This site does not use advertising or analytics trackers. If you choose to remember your theme, that choice is stored in this browser.</p>
-              <p>We use Google Fonts for type, Supabase for walk information, and OpenStreetMap services for maps and routes. Printing or downloading a walk sends only the approximate map area to OpenStreetMap—not your itinerary or its stories. A route request sends your chosen starting point to the routing service; GPS coordinates are included only if you choose GPS. Optional itinerary emails are checked by Cloudflare and sent by Resend. These providers may receive technical information such as your IP address.</p>
+              <p>We use Google Fonts for type, Supabase for walk information, and OpenStreetMap-powered services for maps and routes. Printing or downloading a walk sends only the approximate map area to the selected map-data service—not your itinerary or its stories. A route request sends your chosen starting point to the routing service; GPS coordinates are included only if you choose GPS. Optional itinerary emails are checked by Cloudflare and sent by Resend. These providers may receive technical information such as your IP address.</p>
             </div>
           </details>
         </div>
