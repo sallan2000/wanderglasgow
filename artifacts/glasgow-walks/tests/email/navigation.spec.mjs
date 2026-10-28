@@ -5,6 +5,7 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
   const state = await isolateEmail(page);
   await page.goto('/tests/email/index.html');
   await page.getByTestId('card-tour-fixture-curated').click();
+  await page.getByTestId('section-itinerary-actions').waitFor({ state: 'visible', timeout: 5000 });
 
   const navigationLinks = [
     page.getByTestId('button-open-itinerary-navigation'),
@@ -19,7 +20,7 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
       );
       await expect(link).toHaveAttribute('target', '_blank');
       await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-      await expect(link).toHaveText('Open in Google Maps');
+      await expect(link).toHaveText('Directions');
 
       const url = new URL(await link.getAttribute('href'));
       expect(url.hostname).toBe('www.google.com');
