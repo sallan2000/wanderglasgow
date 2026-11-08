@@ -16,7 +16,7 @@ function* search(matrix: Matrix, maxStops: number, budget: number, limits: Searc
   const count = matrix.length - 1;
   if (count < 0 || matrix.some(row => !Array.isArray(row) || row.length !== count + 1 ||
     row.some(v => v !== null && (typeof v !== 'number' || !Number.isFinite(v) || v < 0)))) throw new Error('Invalid walking matrix.');
-  if (!Number.isInteger(maxStops) || maxStops < 1 || maxStops > 6 ||
+  if (!Number.isInteger(maxStops) || maxStops < 1 || maxStops > MAX_WALK_CANDIDATES ||
     !Number.isFinite(budget) || budget <= 0) throw new Error('Invalid walking limits.');
   if (count > MAX_WALK_CANDIDATES) throw new WalkOptimisationLimitError();
   if (!count) return { order: [], distanceMeters: 0 };

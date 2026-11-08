@@ -11,7 +11,7 @@ export const defaultWalkLimitKm = (radiusKm: number) => radiusKm === 10 ? 15 : 5
 export type PlannerOptions = {
   theme: Theme | Theme[] | 'All';
   radiusKm: number;
-  maxStops: number;
+  maxStops: number | 'as-many-as-fit';
   maxWalkKm?: number;
   accessPreference?: AccessPreference;
 };
@@ -77,8 +77,10 @@ export async function planAttractionWalk(
   // Retain single-category inputs for existing callers; only scalar 'All' is unrestricted.
   const selectedThemes = options.theme === 'All' ? null :
     typeof options.theme === 'string' ? [options.theme] : options.theme;
-  if (!SEARCH_RADII_KM.some(radius => radius === options.radiusKm) || !Number.isInteger(options.maxStops) ||
-      options.maxStops < 1 || options.maxStops > 6 ||
+  const validStopTarget = options.maxStops === 'as-many-as-fit' ||
+    (typeof options.maxStops === 'number' && Number.isInteger(options.maxStops) &&
+      options.maxStops >= 1 && options.maxStops <= 6);
+  if (!SEARCH_RADII_KM.some(radius => radius === options.radiusKm) || !validStopTarget ||
        (selectedThemes !== null && (!Array.isArray(selectedThemes) || !selectedThemes.length ||
          selectedThemes.some(theme => typeof theme !== 'string' || !theme.trim() || theme.length > 40)))) {
     throw new WalkPlanningError('Choose at least one valid category, a radius and number of stops.', 'location');
@@ -124,7 +126,8 @@ export async function planAttractionWalk(
   const matrix = indices.map(a => indices.map(b => table.distances[a][b] as number | null));
   let chosen;
   try {
-    chosen = await findEfficientOrderAsync(matrix, options.maxStops, maxWalkKm * 1000, signal);
+    const stopLimit = options.maxStops === 'as-many-as-fit' ? reachable.length : options.maxStops;
+    chosen = await findEfficientOrderAsync(matrix, stopLimit, maxWalkKm * 1000, signal);
   } catch (error) {
     if (error instanceof WalkOptimisationLimitError) throw new WalkPlanningError(error.message, 'location');
     throw error;

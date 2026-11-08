@@ -24,6 +24,7 @@ export const fixtureAttractions: Attraction[] = [
 
 export const mapFixtureState = {
   catalogueLoads: 0,
+  includeManyStops: false,
   planCalls: [] as { origin: Position; options: PlannerOptions }[],
 };
 

@@ -128,6 +128,15 @@ try {
     assert.equal(defaultWalkLimitKm(5), 5, 'Existing search options retain a 5 km walking limit');
     assert.equal(defaultWalkLimitKm(4), 5, 'The new 4 km search retains the existing 5 km walking limit');
     assert.equal(defaultWalkLimitKm(10), 15, 'Extended search permits a 15 km walk');
+    const eightStopCatalogue = Array.from({ length: 8 }, (_, i) => ({
+      id: `many-${i + 1}`, name: `Many-stop sight ${i + 1}`, description: 'As-many-as-fit test.',
+      place: 'Glasgow', theme: 'History', lat: origin.lat + (i + 1) * 0.0001, lon: origin.lon,
+    }));
+    customMatrix = Array.from({ length: 9 }, (_, from) => Array.from({ length: 9 }, (_, to) => from === to ? 0 : 100));
+    const manyStops = await planAttractionWalk(origin, { theme: 'All', radiusKm: 2, maxStops: 'as-many-as-fit' }, undefined, eightStopCatalogue);
+    assert.equal(manyStops.stops.length, 8, '6+ finds every matching sight that fits the distance limit');
+    assert.equal(manyStops.distanceMeters, 800, 'More than seven stops still use the exact shortest order');
+    customMatrix = null;
     const fourKmCatalogue = [0.030, 0.031, 0.050].map((offset, i) => ({
       id: `four-km-${i}`, name: `Four-kilometre search sight ${i}`, description: '4 km radius check.',
       place: 'Glasgow', theme: 'Art', lat: origin.lat + offset, lon: origin.lon,

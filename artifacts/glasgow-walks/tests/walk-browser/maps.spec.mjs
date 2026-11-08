@@ -452,6 +452,22 @@ test('attraction search distance explains its start-distance and separate walk-l
   await verify();
 });
 
+test('stop target starts at three and 6+ warns when the itinerary has more than seven stops', async ({ page }) => {
+  const verify = await isolateMaps(page);
+  await openMapFixture(page, 'planner');
+  await page.getByTestId('button-mode-nearby').click();
+  await expect(page.getByTestId('button-stops-3')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByTestId('button-stops-6plus').click();
+  await expect(page.getByTestId('text-stop-target-help')).toContainText('as many matching sights as fit');
+  await page.evaluate(() => { window.plannerFixture.includeManyStops = true; });
+  await page.getByTestId('button-plan-route').click();
+  await expect(page.getByTestId('result-plan')).toBeVisible();
+  await expect(page.getByTestId('status-many-stops')).toContainText('8 stops');
+  expect(await page.evaluate(() => window.plannerFixture.planCalls.at(-1).options.maxStops)).toBe('as-many-as-fit');
+  await verify({ geolocationRequests: 1 });
+});
+
 test('visitor route choices survive tile recovery and ignore errors from a retired tile layer', async ({ page }) => {
   const verify = await isolateMaps(page);
   await openMapFixture(page, 'planner');
@@ -501,7 +517,7 @@ test('visitor route choices survive tile recovery and ignore errors from a retir
   await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => window.plannerFixture.planCalls)).toEqual([{
     origin: { lat: 55.8609, lon: -4.2514 },
-    options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4 },
+    options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4, accessPreference: 'any' },
   }]);
   expect(await page.evaluate(() => {
     const map = window.mapFixture.live[0];
@@ -553,7 +569,7 @@ test('visitor route choices survive tile recovery and ignore errors from a retir
   await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => window.plannerFixture.planCalls.at(-1))).toEqual({
     origin: { lat: 55.8609, lon: -4.2514 },
-    options: { theme: ['History', 'Architecture'], radiusKm: 4, maxStops: 4 },
+    options: { theme: ['History', 'Architecture'], radiusKm: 4, maxStops: 4, accessPreference: 'any' },
   });
 
   await page.evaluate(tiles => tiles.fire('tileerror'), activeTiles);
@@ -605,7 +621,7 @@ for (const gpsError of [
     expect(await page.evaluate(() => geolocationFixture.requests.length)).toBe(1);
     expect(await page.evaluate(() => plannerFixture.planCalls)).toEqual([{
       origin: { lat: 55.8609, lon: -4.2514 },
-      options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4 },
+      options: { theme: ['History', 'Architecture'], radiusKm: 3, maxStops: 4, accessPreference: 'any' },
     }]);
     await verify({ geolocationRequests: 1 });
   });

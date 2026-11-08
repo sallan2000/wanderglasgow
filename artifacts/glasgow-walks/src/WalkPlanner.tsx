@@ -35,7 +35,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const [start, setStart] = useState<Start>('gps');
   const startingAreas = useStartingAreas();
   const [radius, setRadius] = useState(2);
-  const [maxStops, setMaxStops] = useState(6);
+  const [maxStops, setMaxStops] = useState<number | 'as-many-as-fit'>(3);
   const [accessPreference, setAccessPreference] = useState<AccessPreference>('any');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
@@ -192,10 +192,16 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
             </p>
           </div>
           <div>
-            <span className="field-label">Up to how many stops</span>
-            <div className="chip-row">
-              {[1, 2, 3, 4, 5, 6].map((n) => <button key={n} className={`chip${maxStops === n ? ' active' : ''}`} aria-pressed={maxStops === n} onClick={() => change(() => setMaxStops(n))} data-testid={`button-stops-${n}`}>{n}</button>)}
+            <span className="field-label" id="planner-stops-label">How many stops?</span>
+            <div className="chip-row" role="group" aria-labelledby="planner-stops-label" aria-describedby="planner-stops-help">
+              {[1, 2, 3, 4, 5].map((n) => <button key={n} className={`chip${maxStops === n ? ' active' : ''}`} aria-pressed={maxStops === n} onClick={() => change(() => setMaxStops(n))} data-testid={`button-stops-${n}`}>{n}</button>)}
+              <button className={`chip${maxStops === 'as-many-as-fit' ? ' active' : ''}`} aria-pressed={maxStops === 'as-many-as-fit'} aria-label="6 or more stops, as many as fit" onClick={() => change(() => setMaxStops('as-many-as-fit'))} data-testid="button-stops-6plus">6+</button>
             </div>
+            <p className="planner-note" id="planner-stops-help" data-testid="text-stop-target-help">
+              {maxStops === 'as-many-as-fit'
+                ? '6+ includes as many matching sights as fit within your walking-distance limit. If the planner cannot verify a route for a large search, it will ask you to narrow the search rather than guess.'
+                : `Plans up to ${maxStops} stops, if they fit within your walking-distance limit. Choose 6+ to include as many matching sights as fit.`}
+            </p>
           </div>
           <div>
             <label className="chip-row" htmlFor="planner-step-free" style={{ alignItems: 'center', gap: 8 }}>
@@ -235,6 +241,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span>{fmtKm(plan.distanceMeters)} walking</span>
               <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>
             </div>
+            {plan.stops.length > 7 && (
+              <div className="planner-msg" role="status" data-testid="status-many-stops">
+                This walk includes {plan.stops.length} stops. The estimated time covers walking only, so allow time for visits and check that this itinerary suits your day.
+              </div>
+            )}
             <EmailWalk walk={plannedEmailWalk(plan)} title="Your calculated Glasgow walk" />
             <ItineraryActions itinerary={plannedItinerary(plan)} />
             {plan.stops.map((s, i) => (
