@@ -196,15 +196,7 @@ Emails contain readable stop itineraries and OpenStreetMap point links, not stor
 
 The app does not store addresses or routes or log request contents. The private database keeps keyed, non-plaintext abuse counters (three attempts per recipient and 100 globally per hour); counters older than two hours are removed on the next send attempt. Resend necessarily receives the address and email body and may retain them under its own policy. Cloudflare processes security checks. See the setup guide for retention, duplicate-retry limits, and provider troubleshooting.
 
-## Print and offline itinerary copies
 
-Both curated details and calculated-walk results offer **Print itinerary** and **Download HTML**. The same self-contained document is used for both. It includes the displayed title, starting point, numbered stops and stories, walking totals, access details when included in that snapshot, and route/access caveats. Print uses a separate document without the site's interactive controls; choose **Save as PDF** in the browser's print dialog where supported. No email configuration or account is required.
-
-Open a downloaded HTML file from Downloads/Files to read it offline. It uses system fonts, inline styles and, for calculated walks with existing geometry, an inline vector route-shape illustration with OpenStreetMap attribution. It loads no scripts, fonts, map tiles or other remote resources. Curated copies use the listed editorial start and estimates, not a GPS connector or an invented walking route; missing access information is explicitly Unknown.
-
-Exports use the current displayed snapshot and never fetch, recalculate or upload an itinerary. A calculated copy includes its chosen start coordinates and route, which can disclose a GPS starting location if the visitor shares the file; this is explained before either action. Copies are fixed, may become outdated, and do not provide live navigation, fresh routing, or an accessibility guarantee. They do not make the whole website available offline.
-
-Static hosts must apply the supplied `public/_headers` policy, including `frame-src 'self'` for the local print document. If printing is blocked or unsupported, download the HTML file and use the browser's Print menu after opening it.
 
 ## Automated checks
 
