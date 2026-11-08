@@ -181,11 +181,15 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
             {!startingAreas.loading && !startingAreas.error && start !== 'gps' && !startReady && <p className="planner-msg" role="alert">Your selected starting area was removed. Choose another starting point.</p>}
           </div>
           <div>
-            <span className="field-label">Search radius</span>
-            <div className="chip-row">
+            <span className="field-label" id="planner-radius-label">Attraction search distance</span>
+            <div className="chip-row" role="group" aria-labelledby="planner-radius-label" aria-describedby="planner-radius-help">
               {SEARCH_RADII_KM.map((r) => <button key={r} className={`chip${radius === r ? ' active' : ''}`} aria-pressed={radius === r} aria-label={r === 10 ? '5 km+, search up to 10 km' : `${r} km`} onClick={() => change(() => setRadius(r))} data-testid={`button-radius-${r}`}>{r === 10 ? '5 km+' : `${r} km`}</button>)}
             </div>
-            {radius === 10 && <p className="planner-note" data-testid="text-extended-radius">5 km+ searches up to 10 km away on foot, including nearer attractions. Allow extra time for a longer walk.</p>}
+            <p className="planner-note" id="planner-radius-help" data-testid="text-radius-help">
+              {radius === 10
+                ? 'The 5 km+ option searches for attractions up to 10 km from your starting point along walking routes. The total walk has a separate limit of 15 km; allow extra time for a longer walk.'
+                : `Searches for attractions within ${radius} km of your starting point along walking routes. The total walk has a separate limit of ${defaultWalkLimitKm(radius)} km.`}
+            </p>
           </div>
           <div>
             <span className="field-label">Up to how many stops</span>

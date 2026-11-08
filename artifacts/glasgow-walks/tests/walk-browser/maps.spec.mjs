@@ -437,6 +437,21 @@ test('visitor GPS permission is mocked and requested only after the plan button 
   await verify({ geolocationRequests: 1 });
 });
 
+test('attraction search distance explains its start-distance and separate walk-length limits', async ({ page }) => {
+  const verify = await isolateMaps(page);
+  await openMapFixture(page, 'planner');
+  await page.getByTestId('button-mode-nearby').click();
+
+  await page.getByTestId('button-radius-3').click();
+  await expect(page.getByTestId('text-radius-help'))
+    .toHaveText('Searches for attractions within 3 km of your starting point along walking routes. The total walk has a separate limit of 5 km.');
+
+  await page.getByTestId('button-radius-10').click();
+  await expect(page.getByTestId('text-radius-help'))
+    .toHaveText('The 5 km+ option searches for attractions up to 10 km from your starting point along walking routes. The total walk has a separate limit of 15 km; allow extra time for a longer walk.');
+  await verify();
+});
+
 test('visitor route choices survive tile recovery and ignore errors from a retired tile layer', async ({ page }) => {
   const verify = await isolateMaps(page);
   await openMapFixture(page, 'planner');
