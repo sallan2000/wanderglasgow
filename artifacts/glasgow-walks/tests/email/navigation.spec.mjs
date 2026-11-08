@@ -33,6 +33,38 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
   state.assertClean();
 });
 
+test('curated walk details stay open until an explicit close button is used', async ({ page }) => {
+  const state = await isolateEmail(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/tests/email/index.html');
+  await page.getByTestId('card-tour-fixture-curated').click();
+
+  const drawer = page.getByTestId('dialog-tour-fixture-curated');
+  await expect(drawer).toBeVisible();
+  expect(await drawer.evaluate(element => element.getBoundingClientRect().width)).toBe(900);
+  await expect(page.getByTestId('button-close-detail')).toHaveCount(0);
+
+  await page.getByTestId('overlay-tour-detail').click({ position: { x: 10, y: 10 } });
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeVisible();
+
+  await page.getByTestId('button-dismiss-detail').click();
+  await expect(drawer).toHaveCount(0);
+
+  await page.getByTestId('card-tour-fixture-curated').click();
+  const reopenedDrawer = page.getByTestId('dialog-tour-fixture-curated');
+  await expect(reopenedDrawer).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await reopenedDrawer.evaluate(element => element.getBoundingClientRect().width)).toBe(390);
+  await reopenedDrawer.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  const closeAtBottom = page.getByTestId('button-close-detail-bottom');
+  await expect(closeAtBottom).toBeInViewport();
+  await closeAtBottom.click();
+  await expect(reopenedDrawer).toHaveCount(0);
+
+  state.assertClean();
+});
+
 test('long routes expose ordered Google Maps segments for mobile browsers', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/tests/email/navigation-fixture.html');

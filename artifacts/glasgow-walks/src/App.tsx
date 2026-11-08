@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
-import { ArrowDown, ArrowLeft, ArrowRight, Clock3, LocateFixed, MapPin, Navigation, Route as RouteIcon, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, Clock3, LocateFixed, MapPin, Navigation, Route as RouteIcon, X } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
 import { MapTileNotice, useMapTiles } from './map-tiles';
 import GlasgowHeroMap from './GlasgowHeroMap';
@@ -107,12 +107,10 @@ function PublicApp() {
 
   useEffect(() => {
     if (!selected) return;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); };
-    window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
     };
   }, [selected]);
 
@@ -357,9 +355,9 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
   };
 
   return (
-    <div className="detail-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} data-testid="overlay-tour-detail">
+    <div className="detail-overlay" data-testid="overlay-tour-detail">
       <section className="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title" data-testid={`dialog-tour-${tour.id}`}>
-        <div className="drawer-top"><button className="button-secondary" onClick={onClose} data-testid="button-close-detail"><ArrowLeft size={16} /> All walks</button><button className="icon-button" onClick={onClose} aria-label="Close tour details" data-testid="button-dismiss-detail"><X size={18} /></button></div>
+        <div className="drawer-top"><button className="icon-button" onClick={onClose} aria-label="Close tour details" data-testid="button-dismiss-detail"><X size={18} /></button></div>
         <div className="eyebrow">{tour.theme} walk · starts at {tour.start}</div>
         <h2 id="detail-title">{tour.title}</h2>
         <div className="drawer-summary">{tour.subtitle} Follow a considered route through real Glasgow places, with room to pause and look around.</div>
@@ -397,6 +395,14 @@ function TourDetail({ tour, onClose, notify }: { tour: Tour; onClose: () => void
             <div><h4>{stop.name}</h4><p>{stop.place} · {stop.story}</p></div>
           </article>
         ))}
+        <button
+          type="button"
+          className="button-secondary detail-close-bottom"
+          onClick={onClose}
+          data-testid="button-close-detail-bottom"
+        >
+          Close walk details
+        </button>
       </section>
     </div>
   );
