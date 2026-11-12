@@ -143,7 +143,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     <section className="planner" id="planner" data-testid="section-planner">
       <div className="eyebrow">Out in Glasgow right now?</div>
       <h2>Plan a walk from where you are.</h2>
-      <p className="planner-lead">Choose one or more categories, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimized avoidable backtracking.</p>
+      <p className="planner-lead">Choose one or more categories, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimised avoidable backtracking.</p>
 
       <div className="mode-grid" role="group" aria-label="Choose how to explore">
         <button className={`mode-card${mode === 'theme' ? ' active' : ''}`} aria-pressed={mode === 'theme'} onClick={() => change(() => setMode('theme'))} data-testid="button-mode-theme">

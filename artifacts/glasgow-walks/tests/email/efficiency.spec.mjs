@@ -16,6 +16,8 @@ test('both planning modes keep the stop target and compare sights beyond the old
     from === to ? 0 : from === 0 ? to >= 13 ? 800 : 100 : from >= 13 && to >= 13 ? 20 :
       (from >= 13) !== (to >= 13) ? 900 : 600));
   await page.goto('/tests/email/index.html');
+  await expect(page.locator('.planner-lead')).toContainText('minimised avoidable backtracking');
+  await expect(page.locator('.planner-lead')).not.toContainText('minimized');
   await page.getByTestId('button-mode-nearby').click();
   await page.getByTestId('button-stops-3').click(); await page.getByTestId('button-plan-route').click();
   await expect(page.getByTestId('text-plan-summary')).toContainText('3 stops');

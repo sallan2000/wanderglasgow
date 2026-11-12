@@ -10,3 +10,4 @@
 - [Access claims](access-claims.md) — owner-provided attraction access does not certify the connecting walking route; unknown information is not suitable information.
 - [Attraction navigation labels](navigation-place-names.md) — use attraction names in map handoffs to avoid reverse-geocoded nearby businesses.
 - [Offline itinerary scope](offline-itinerary-scope.md) — exports embed bounded OSM vector maps requested on demand; disclose the area request and never package standard OSM raster tiles offline.
+- [UK English UI copy](uk-english-ui.md) — use UK spellings in customer-facing text; keep code identifiers and technical terms unchanged.
