@@ -7,4 +7,4 @@ For Wander Glasgow's “Open in navigation” handoff, use only Google's cross-p
 
 **Why:** The user found that coordinate-based map links were being labeled as unrelated nearby businesses, then explicitly requested Google Maps only and support for desktop and mobile.
 
-**How to apply:** Use a normal HTTPS anchor to Google's universal directions URL; it opens the Maps app when installed and the browser otherwise. Google Maps mobile browsers support up to three waypoints, while other platforms support up to nine. Do not silently truncate long routes; provide a segmented fallback if full mobile-browser coverage is required. Test both desktop and mobile link behavior, names, and stop order.
+**How to apply:** Use a normal HTTPS anchor to Google's universal directions URL; it opens the Maps app when installed and the browser otherwise. Detect mobile devices from browser hints/user agent, accounting for iPads in desktop mode. Use one link for up to three mobile or nine desktop waypoints; for longer walks, show ordered overlapping route parts instead of a link that may drop stops. Preserve attraction names and stop order.

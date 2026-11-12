@@ -19,7 +19,12 @@ export async function planAttractionWalk(
   _catalogue?: Attraction[],
 ): Promise<PlannedWalk> {
   mapFixtureState.planCalls.push({ origin: { ...origin }, options: structuredClone(options) });
-  const stops = fixtureAttractions;
+  const stops = mapFixtureState.includeManyStops
+    ? Array.from({ length: 8 }, (_, index) => {
+      const base = fixtureAttractions[index % fixtureAttractions.length];
+      return { ...base, id: `long-walk-${index + 1}`, name: `${base.name} ${index + 1}`, lat: base.lat + index * 0.0002 };
+    })
+    : fixtureAttractions;
   const coordinates: [number, number][] = [
     [origin.lon, origin.lat],
     ...stops.map(stop => [stop.lon, stop.lat] as [number, number]),

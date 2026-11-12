@@ -6,7 +6,8 @@
 - [Map readiness](map-readiness.md) — cached loaders can hide loading/ready transitions through React batching; dependent overlays must observe the replacement map.
 - [Leaflet tile retry](leaflet-tile-retry.md) — background tile retries redraw the existing layer; distinguish tile events from map recreation in lifecycle checks.
 - [Rendered fixture isolation](rendered-fixture-isolation.md) — give component suites separate Vite fixtures when the same module needs different fake store contracts.
-- [Walking efficiency](walking-efficiency.md) — keep the visitor’s stop target before minimising distance; an exact stop order does not prove globally shortest street paths.
+- [Walking efficiency](walking-efficiency.md) — preserve stop targets; 6+ maximizes feasible stops exactly, with explicit safeguards, without claiming globally shortest streets.
 - [Access claims](access-claims.md) — owner-provided attraction access does not certify the connecting walking route; unknown information is not suitable information.
 - [Attraction navigation labels](navigation-place-names.md) — use attraction names in map handoffs to avoid reverse-geocoded nearby businesses.
 - [Offline itinerary scope](offline-itinerary-scope.md) — exports embed bounded OSM vector maps requested on demand; disclose the area request and never package standard OSM raster tiles offline.
+- [UK English UI copy](uk-english-ui.md) — use UK spellings in customer-facing text; keep code identifiers and technical terms unchanged.

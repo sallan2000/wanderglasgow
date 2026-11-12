@@ -35,7 +35,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const [start, setStart] = useState<Start>('gps');
   const startingAreas = useStartingAreas();
   const [radius, setRadius] = useState(2);
-  const [maxStops, setMaxStops] = useState(6);
+  const [maxStops, setMaxStops] = useState<number | 'as-many-as-fit'>(3);
   const [accessPreference, setAccessPreference] = useState<AccessPreference>('any');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
@@ -138,12 +138,17 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   }, [plan, mapAttempt, tiles.attach]);
 
   const busy = status === 'locating' || status === 'planning';
+  const selectedStartName = start === 'gps'
+    ? 'My location'
+    : startingAreas.areas.find(area => area.id === start)?.name ?? 'Choose a starting point';
+  const searchDistanceLabel = radius === 10 ? 'Up to 10 km on foot' : `Within ${radius} km on foot`;
+  const stopTargetLabel = maxStops === 'as-many-as-fit' ? 'As many as fit (6+)' : `Up to ${maxStops}`;
 
   return (
     <section className="planner" id="planner" data-testid="section-planner">
       <div className="eyebrow">Out in Glasgow right now?</div>
       <h2>Plan a walk from where you are.</h2>
-      <p className="planner-lead">Choose one or more categories, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimized avoidable backtracking.</p>
+      <p className="planner-lead">Choose one or more categories, or take in everything nearby. We build a route on real pedestrian paths that visits as many sights as fit, with minimised avoidable backtracking.</p>
 
       <div className="mode-grid" role="group" aria-label="Choose how to explore">
         <button className={`mode-card${mode === 'theme' ? ' active' : ''}`} aria-pressed={mode === 'theme'} onClick={() => change(() => setMode('theme'))} data-testid="button-mode-theme">
@@ -181,17 +186,27 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
             {!startingAreas.loading && !startingAreas.error && start !== 'gps' && !startReady && <p className="planner-msg" role="alert">Your selected starting area was removed. Choose another starting point.</p>}
           </div>
           <div>
-            <span className="field-label">Search radius</span>
-            <div className="chip-row">
+            <span className="field-label" id="planner-radius-label">Attraction search distance</span>
+            <div className="chip-row" role="group" aria-labelledby="planner-radius-label" aria-describedby="planner-radius-help">
               {SEARCH_RADII_KM.map((r) => <button key={r} className={`chip${radius === r ? ' active' : ''}`} aria-pressed={radius === r} aria-label={r === 10 ? '5 km+, search up to 10 km' : `${r} km`} onClick={() => change(() => setRadius(r))} data-testid={`button-radius-${r}`}>{r === 10 ? '5 km+' : `${r} km`}</button>)}
             </div>
-            {radius === 10 && <p className="planner-note" data-testid="text-extended-radius">5 km+ searches up to 10 km away on foot, including nearer attractions. Allow extra time for a longer walk.</p>}
+            <p className="planner-note" id="planner-radius-help" data-testid="text-radius-help">
+              {radius === 10
+                ? 'The 5 km+ option searches for attractions up to 10 km from your starting point along walking routes. The total walk has a separate limit of 15 km; allow extra time for a longer walk.'
+                : `Searches for attractions within ${radius} km of your starting point along walking routes. The total walk has a separate limit of ${defaultWalkLimitKm(radius)} km.`}
+            </p>
           </div>
           <div>
-            <span className="field-label">Up to how many stops</span>
-            <div className="chip-row">
-              {[1, 2, 3, 4, 5, 6].map((n) => <button key={n} className={`chip${maxStops === n ? ' active' : ''}`} aria-pressed={maxStops === n} onClick={() => change(() => setMaxStops(n))} data-testid={`button-stops-${n}`}>{n}</button>)}
+            <span className="field-label" id="planner-stops-label">How many stops?</span>
+            <div className="chip-row" role="group" aria-labelledby="planner-stops-label" aria-describedby="planner-stops-help">
+              {[1, 2, 3, 4, 5].map((n) => <button key={n} className={`chip${maxStops === n ? ' active' : ''}`} aria-pressed={maxStops === n} onClick={() => change(() => setMaxStops(n))} data-testid={`button-stops-${n}`}>{n}</button>)}
+              <button className={`chip${maxStops === 'as-many-as-fit' ? ' active' : ''}`} aria-pressed={maxStops === 'as-many-as-fit'} aria-label="6 or more stops, as many as fit" onClick={() => change(() => setMaxStops('as-many-as-fit'))} data-testid="button-stops-6plus">6+</button>
             </div>
+            <p className="planner-note" id="planner-stops-help" data-testid="text-stop-target-help">
+              {maxStops === 'as-many-as-fit'
+                ? '6+ includes as many matching sights as fit within your walking-distance limit. If the planner cannot verify a route for a large search, it will ask you to narrow the search rather than guess.'
+                : `Plans up to ${maxStops} stops, if they fit within your walking-distance limit. Choose 6+ to include as many matching sights as fit.`}
+            </p>
           </div>
           <div>
             <label className="chip-row" htmlFor="planner-step-free" style={{ alignItems: 'center', gap: 8 }}>
@@ -199,6 +214,15 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span className="field-label" style={{ margin: 0 }}>Only stops with a recorded step-free entrance</span>
             </label>
             <p className="planner-note" data-testid="text-access-filter-note">This filter only uses entrance information recorded for each attraction. It does not assess the paths between sights and is not a promise of an accessible route.</p>
+          </div>
+          <div className="planner-summary" data-testid="text-walk-settings" aria-live="polite" aria-atomic="true">
+            <strong className="planner-summary-title">Your walk settings</strong>
+            <dl className="planner-summary-grid">
+              <div><dt>Starting point</dt><dd>{selectedStartName}</dd></div>
+              <div><dt>Attraction search</dt><dd>{searchDistanceLabel}</dd></div>
+              <div><dt>Maximum walk</dt><dd>{defaultWalkLimitKm(radius)} km total</dd></div>
+              <div><dt>Stops</dt><dd>{stopTargetLabel}</dd></div>
+            </dl>
           </div>
           <div className="planner-actions">
             <button className="button-primary" disabled={!ready || busy} onClick={go} data-testid="button-plan-route">
@@ -231,6 +255,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span>{fmtKm(plan.distanceMeters)} walking</span>
               <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>
             </div>
+            {plan.stops.length > 7 && (
+              <div className="planner-msg" role="status" data-testid="status-many-stops">
+                This walk includes {plan.stops.length} stops. The estimated time covers walking only, so allow time for visits and check that this itinerary suits your day.
+              </div>
+            )}
             <EmailWalk walk={plannedEmailWalk(plan)} title="Your calculated Glasgow walk" />
             <ItineraryActions itinerary={plannedItinerary(plan)} />
             {plan.stops.map((s, i) => (
