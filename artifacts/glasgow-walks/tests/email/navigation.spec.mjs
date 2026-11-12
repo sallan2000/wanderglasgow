@@ -7,9 +7,9 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
   await page.getByTestId('card-tour-fixture-curated').click();
   await page.getByTestId('section-itinerary-actions').waitFor({ state: 'visible', timeout: 5000 });
   const privacyNotice = page.getByTestId('text-itinerary-privacy');
-  await expect(privacyNotice).toContainText('not GPS or a calculated route');
+  await expect(privacyNotice).toContainText('Planned walks also include the chosen start and calculated route, which may include GPS.');
   await expect(privacyNotice).toContainText('not your file or stop stories');
-  expect((await privacyNotice.textContent()).length).toBeLessThan(220);
+  expect((await privacyNotice.textContent()).length).toBeLessThan(300);
 
   const navigationLinks = [
     page.getByTestId('button-open-itinerary-navigation'),
@@ -34,6 +34,22 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
       expect(url.searchParams.has('waypoints')).toBe(false);
     }
   }
+  state.assertClean();
+});
+
+test('curated and planned walks share the same accurate route copy', async ({ page }) => {
+  const state = await isolateEmail(page);
+  await page.goto('/tests/email/index.html');
+  await page.getByTestId('card-tour-fixture-curated').click();
+  const curatedCopy = (await page.getByTestId('text-itinerary-privacy').innerText()).trim();
+  await page.getByTestId('button-dismiss-detail').click();
+
+  await page.getByTestId('button-mode-nearby').click();
+  await page.getByTestId('button-plan-route').click();
+  await expect(page.getByTestId('text-plan-summary')).toContainText('700 m');
+  const plannedCopy = (await page.getByTestId('text-itinerary-privacy').innerText()).trim();
+  expect(plannedCopy).toBe(curatedCopy);
+  expect(plannedCopy).toContain('which may include GPS');
   state.assertClean();
 });
 

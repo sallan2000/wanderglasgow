@@ -17,9 +17,7 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
     <div className="itinerary-actions" data-testid="section-itinerary-actions">
       <h4>Route to this walk</h4>
       <p data-testid="text-itinerary-privacy">
-        {planned
-          ? 'Download includes your chosen start and calculated route, which may include your GPS location.'
-          : 'Download shows the listed stops, not GPS or a calculated route.'}
+        Download shows the listed stops. Planned walks also include the chosen start and calculated route, which may include GPS.
         {' '}OpenStreetMap gets the approximate map area and standard request data, not your file or stop stories. The HTML stays on your device unless shared.
       </p>
       <div className="itinerary-buttons">

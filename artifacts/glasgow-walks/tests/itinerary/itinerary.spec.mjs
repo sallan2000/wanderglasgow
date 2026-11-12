@@ -34,9 +34,9 @@ test('curated download embeds a street map and opens offline without invented pa
   page.on('request', r => { if (r.url().startsWith('https://')) requests.push(r.url()); });
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage }));
   const privacyNotice = page.getByTestId('text-itinerary-privacy');
-  await expect(privacyNotice).toContainText('not GPS or a calculated route');
+  await expect(privacyNotice).toContainText('Planned walks also include the chosen start and calculated route, which may include GPS.');
   await expect(privacyNotice).toContainText('not your file or stop stories');
-  expect((await privacyNotice.textContent()).length).toBeLessThan(220);
+  expect((await privacyNotice.textContent()).length).toBeLessThan(300);
   const file = await download(page, testInfo, 'curated.html');
   expect(file.html).toContain('<svg');
   expect(file.html).toContain('data-map-marker="S/1"');
@@ -106,7 +106,7 @@ test('calculated download preserves route, stop order and safely escaped access 
   const requests = [];
   page.on('request', r => { if (r.url().startsWith('https://')) requests.push(r.url()); });
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage }));
-  await expect(page.getByTestId('text-itinerary-privacy')).toContainText('may include your GPS location');
+  await expect(page.getByTestId('text-itinerary-privacy')).toContainText('which may include GPS');
   const file = await download(page, testInfo, 'planned.html');
   expect(state.routingRequests).toHaveLength(prior);
   expect(requests).toHaveLength(1);
