@@ -69,22 +69,24 @@ test('curated walk details stay open until an explicit close button is used', as
   state.assertClean();
 });
 
-test('long routes expose ordered Google Maps segments for mobile browsers', async ({ page }) => {
+test('long mobile routes show ordered Google Maps segments instead of an unsupported full link', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile',
+    });
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/tests/email/navigation-fixture.html');
 
-  const directLink = page.getByTestId('route-navigation');
-  await expect(directLink).toHaveAttribute('target', '_blank');
-  await expect(directLink).toHaveAttribute('rel', 'noopener noreferrer');
-  const directUrl = new URL(await directLink.getAttribute('href'));
-  expect(directUrl.searchParams.get('waypoints')).toBe('Stop 1|Stop 2|Stop 3|Stop 4|Stop 5');
+  await expect(page.getByTestId('route-navigation')).toHaveCount(0);
 
   const segmentLinks = [
     page.getByTestId('route-navigation-segment-1'),
     page.getByTestId('route-navigation-segment-2'),
   ];
   await expect(page.getByTestId('route-navigation-segments')).toContainText(
-    'On mobile, open each part in order;',
+    'This route is split to fit Google Maps.',
   );
   for (const link of segmentLinks) {
     await expect(link).toHaveAttribute('target', '_blank');
@@ -103,7 +105,13 @@ test('long routes expose ordered Google Maps segments for mobile browsers', asyn
   expect(await page.locator('body').evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test('a route with three waypoints stays a single direct Google Maps link', async ({ page }) => {
+test('mobile routes with three waypoints stay a single direct Google Maps link', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile',
+    });
+  });
   await page.goto('/tests/email/navigation-fixture.html?points=5');
 
   const directLink = page.getByTestId('route-navigation');
@@ -112,4 +120,28 @@ test('a route with three waypoints stays a single direct Google Maps link', asyn
   const url = new URL(await directLink.getAttribute('href'));
   expect(url.searchParams.get('waypoints')).toBe('Stop 1|Stop 2|Stop 3');
   expect(url.searchParams.get('destination')).toBe('Stop 4');
+});
+
+test('desktop routes use one Google Maps link up to nine waypoints', async ({ page }) => {
+  await page.goto('/tests/email/navigation-fixture.html');
+
+  const directLink = page.getByTestId('route-navigation');
+  await expect(directLink).toHaveAttribute('href', /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1/);
+  await expect(page.getByTestId('route-navigation-segments')).toHaveCount(0);
+  expect(new URL(await directLink.getAttribute('href')).searchParams.get('waypoints'))
+    .toBe('Stop 1|Stop 2|Stop 3|Stop 4|Stop 5');
+});
+
+test('desktop routes exceeding nine waypoints are split into supported parts', async ({ page }) => {
+  await page.goto('/tests/email/navigation-fixture.html?points=12');
+
+  await expect(page.getByTestId('route-navigation')).toHaveCount(0);
+  const segments = page.getByTestId('route-navigation-segments');
+  await expect(segments).toBeVisible();
+  const first = new URL(await page.getByTestId('route-navigation-segment-1').getAttribute('href'));
+  const second = new URL(await page.getByTestId('route-navigation-segment-2').getAttribute('href'));
+  expect(first.searchParams.get('waypoints').split('|')).toHaveLength(9);
+  expect(first.searchParams.get('destination')).toBe('Stop 10');
+  expect(second.searchParams.get('origin')).toBe('Stop 10');
+  expect(second.searchParams.get('destination')).toBe('Stop 11');
 });

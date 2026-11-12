@@ -13,6 +13,8 @@ export interface NavigationPoint extends Coordinate {
 
 export const GOOGLE_MAPS_MOBILE_MAX_WAYPOINTS = 3;
 export const GOOGLE_MAPS_MOBILE_MAX_ROUTE_POINTS = GOOGLE_MAPS_MOBILE_MAX_WAYPOINTS + 2;
+export const GOOGLE_MAPS_DESKTOP_MAX_WAYPOINTS = 9;
+export const GOOGLE_MAPS_DESKTOP_MAX_ROUTE_POINTS = GOOGLE_MAPS_DESKTOP_MAX_WAYPOINTS + 2;
 
 export interface GoogleMapsRouteSegment {
   points: NavigationPoint[];
@@ -50,8 +52,12 @@ export function buildGoogleMapsUrl(points: NavigationPoint[]): string {
   return `https://www.google.com/maps/dir/?${googleParams.toString()}`;
 }
 
-export function buildGoogleMapsRouteSegments(points: NavigationPoint[]): GoogleMapsRouteSegment[] {
-  if (!Array.isArray(points) || points.length <= GOOGLE_MAPS_MOBILE_MAX_ROUTE_POINTS) {
+export function buildGoogleMapsRouteSegments(
+  points: NavigationPoint[],
+  maxWaypoints = GOOGLE_MAPS_MOBILE_MAX_WAYPOINTS,
+): GoogleMapsRouteSegment[] {
+  const maxRoutePoints = maxWaypoints + 2;
+  if (!Array.isArray(points) || points.length <= maxRoutePoints) {
     return [];
   }
 
@@ -59,7 +65,7 @@ export function buildGoogleMapsRouteSegments(points: NavigationPoint[]): GoogleM
   let startIndex = 0;
   while (startIndex < points.length - 1) {
     const endIndex = Math.min(
-      startIndex + GOOGLE_MAPS_MOBILE_MAX_ROUTE_POINTS - 1,
+      startIndex + maxRoutePoints - 1,
       points.length - 1,
     );
     const segmentPoints = points.slice(startIndex, endIndex + 1);
