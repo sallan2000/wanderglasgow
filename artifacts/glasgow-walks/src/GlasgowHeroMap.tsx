@@ -77,7 +77,7 @@ function LandmarkGlyph({ id }: { id: Place['id'] }) {
 
 export default function GlasgowHeroMap() {
   return (
-    <div className="hero-art" role="img" aria-label="Illustrated central Glasgow map with Kelvingrove, the university, the Art School, City Chambers, Glasgow Cathedral and the Barras shown in their real relative locations.">
+    <div className="hero-art" role="img" aria-label="Illustrated central Glasgow map with Kelvingrove, the university, the Art School, City Chambers, Glasgow Cathedral and the Barras shown in their real relative locations. The dashed path is illustrative, not a pedestrian route.">
       <div className="map-illustration">
         <img className="map-artwork" src={mapArtwork} alt="" />
         <svg className="hero-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -86,6 +86,10 @@ export default function GlasgowHeroMap() {
           <path d={`M ${points.kelvingrove.x} ${points.kelvingrove.y} C 25 26, 32 41, ${points.school.x} ${points.school.y} S 56 43, ${points.chambers.x} ${points.chambers.y} S 74 59, ${points.barras.x} ${points.barras.y}`}
             fill="none" stroke="#c76043" strokeWidth=".68" strokeDasharray="1.4 1.45" strokeLinecap="round" />
         </svg>
+        <span className="hero-route-label">
+          <span className="hero-route-swatch" aria-hidden="true" />
+          Illustrative route
+        </span>
         {places.map(place => {
           const point = points[place.id];
           return <div key={place.id} className={`hero-landmark landmark-${place.id}`} style={{ left: `${point.x}%`, top: `${point.y}%` }}>

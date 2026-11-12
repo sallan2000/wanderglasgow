@@ -37,6 +37,14 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
   state.assertClean();
 });
 
+test('hero map identifies its dashed path as illustrative', async ({ page }) => {
+  const state = await isolateEmail(page);
+  await page.goto('/tests/email/index.html');
+  await expect(page.locator('.hero-route-label')).toHaveText('Illustrative route');
+  await expect(page.getByRole('img', { name: /dashed path is illustrative, not a pedestrian route/ })).toBeVisible();
+  state.assertClean();
+});
+
 test('curated and planned walks share the same accurate route copy', async ({ page }) => {
   const state = await isolateEmail(page);
   await page.goto('/tests/email/index.html');
