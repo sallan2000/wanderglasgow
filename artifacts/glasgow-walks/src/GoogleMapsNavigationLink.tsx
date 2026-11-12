@@ -56,7 +56,7 @@ export default function GoogleMapsNavigationLink({ points, testId }: Props) {
       )}
       {segments.length > 0 && (
         <nav className="google-maps-route-segments" aria-label="Google Maps route parts" data-testid={`${testId}-segments`}>
-          <p>For mobile browsers, open these route parts in order. Each part starts where the previous one ends.</p>
+          <p>On mobile, open each part in order; each starts where the last ends.</p>
           <ol>
             {segments.map((segment, index) => {
               const start = pointLabel(segment.points[0], segment.startIndex, points.length - 1);

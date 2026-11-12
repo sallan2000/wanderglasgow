@@ -18,9 +18,9 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
       <h4>Route to this walk</h4>
       <p data-testid="text-itinerary-privacy">
         {planned
-          ? 'This copy includes your chosen starting coordinates and calculated route, which may include your GPS location.'
-          : 'This editorial copy shows the listed start and stop positions without a GPS connection or calculated route.'}
-        {' '}To add the street map, the selected OpenStreetMap data service receives the approximate walk area and standard request information; it does not receive the itinerary file or stop stories. The completed HTML embeds the map and stays on your device unless you share it.
+          ? 'Download includes your chosen start and calculated route, which may include your GPS location.'
+          : 'Download shows the listed stops, not GPS or a calculated route.'}
+        {' '}OpenStreetMap gets the approximate map area and standard request data, not your file or stop stories. The HTML stays on your device unless shared.
       </p>
       <div className="itinerary-buttons">
         <GoogleMapsNavigationLink points={navigationPoints} testId="button-open-itinerary-navigation" />

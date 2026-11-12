@@ -6,6 +6,10 @@ test('Open in Google Maps uses a cross-platform directions link with attraction 
   await page.goto('/tests/email/index.html');
   await page.getByTestId('card-tour-fixture-curated').click();
   await page.getByTestId('section-itinerary-actions').waitFor({ state: 'visible', timeout: 5000 });
+  const privacyNotice = page.getByTestId('text-itinerary-privacy');
+  await expect(privacyNotice).toContainText('not GPS or a calculated route');
+  await expect(privacyNotice).toContainText('not your file or stop stories');
+  expect((await privacyNotice.textContent()).length).toBeLessThan(220);
 
   const navigationLinks = [
     page.getByTestId('button-open-itinerary-navigation'),
@@ -80,7 +84,7 @@ test('long routes expose ordered Google Maps segments for mobile browsers', asyn
     page.getByTestId('route-navigation-segment-2'),
   ];
   await expect(page.getByTestId('route-navigation-segments')).toContainText(
-    'For mobile browsers, open these route parts in order.',
+    'On mobile, open each part in order;',
   );
   for (const link of segmentLinks) {
     await expect(link).toHaveAttribute('target', '_blank');
