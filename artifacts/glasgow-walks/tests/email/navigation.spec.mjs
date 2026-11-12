@@ -45,6 +45,27 @@ test('hero map identifies its dashed path as illustrative', async ({ page }) => 
   state.assertClean();
 });
 
+test('planner shows a live summary of the selected walking limits', async ({ page }) => {
+  const state = await isolateEmail(page);
+  await page.goto('/tests/email/index.html');
+  await page.getByTestId('button-mode-nearby').click();
+  const summary = page.getByTestId('text-walk-settings');
+  await expect(summary).toContainText('My location');
+  await expect(summary).toContainText('Within 2 km on foot');
+  await expect(summary).toContainText('5 km total');
+  await expect(summary).toContainText('Up to 3');
+
+  await expect(page.getByTestId('button-start-fixture-area')).toBeVisible();
+  await page.getByTestId('button-start-fixture-area').click();
+  await page.getByTestId('button-radius-10').click();
+  await page.getByTestId('button-stops-6plus').click();
+  await expect(summary).toContainText('Fixture starting area');
+  await expect(summary).toContainText('Up to 10 km on foot');
+  await expect(summary).toContainText('15 km total');
+  await expect(summary).toContainText('As many as fit (6+)');
+  state.assertClean();
+});
+
 test('curated and planned walks share the same accurate route copy', async ({ page }) => {
   const state = await isolateEmail(page);
   await page.goto('/tests/email/index.html');

@@ -580,6 +580,12 @@ a.button-secondary { text-decoration:none; }
 .chip{min-height:44px;padding:0 16px;border:1px solid var(--ink);background:transparent;color:var(--ink);font-weight:600;border-radius:30px}
 .chip.active{background:var(--ink);color:var(--paper)}
 .planner-note{font-size:12px;line-height:1.6;color:var(--ink-soft);margin:0}
+.planner-summary{border-left:3px solid var(--orange-strong);background:var(--paper-deep);padding:14px 16px}
+.planner-summary-title{font:500 10px var(--app-font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.planner-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:10px 0 0}
+.planner-summary-grid>div{min-width:0}
+.planner-summary-grid dt{font:10px/1.4 var(--app-font-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+.planner-summary-grid dd{margin:3px 0 0;font-size:14px;line-height:1.35;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
 .planner-actions{display:flex;gap:12px;flex-wrap:wrap}
 .planner-actions .button-primary,.planner-actions .location-button{min-height:48px}
 .planner-actions button:disabled{opacity:.6;cursor:wait}
@@ -594,7 +600,7 @@ a.button-secondary { text-decoration:none; }
 .plan-stop small{font:11px var(--app-font-mono);color:var(--ink-soft)}
 .plan-others{margin-top:18px;font-size:13px;color:var(--ink-soft)}
 .plan-others li{margin:6px 0}
-@media(max-width:760px){.mode-grid{grid-template-columns:1fr}.plan-result{grid-template-columns:1fr}.planner{padding:48px 21px}.plan-map{height:340px}.planner-actions button{width:100%;justify-content:center}}
+@media(max-width:760px){.mode-grid{grid-template-columns:1fr}.plan-result{grid-template-columns:1fr}.planner{padding:48px 21px}.plan-map{height:340px}.planner-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.planner-actions button{width:100%;justify-content:center}}
 
 @media(max-width:760px){
  .eyebrow,.hero-footnote,.theme-count,.tour-toolbar p,.tour-kicker,.tour-meta,.tour-number,.footer,.map-credit,.map-status,.intro-strip span,.field-label,.plan-stop small,.stop-num{font-size:12px}

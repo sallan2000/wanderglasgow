@@ -138,6 +138,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   }, [plan, mapAttempt, tiles.attach]);
 
   const busy = status === 'locating' || status === 'planning';
+  const selectedStartName = start === 'gps'
+    ? 'My location'
+    : startingAreas.areas.find(area => area.id === start)?.name ?? 'Choose a starting point';
+  const searchDistanceLabel = radius === 10 ? 'Up to 10 km on foot' : `Within ${radius} km on foot`;
+  const stopTargetLabel = maxStops === 'as-many-as-fit' ? 'As many as fit (6+)' : `Up to ${maxStops}`;
 
   return (
     <section className="planner" id="planner" data-testid="section-planner">
@@ -209,6 +214,15 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span className="field-label" style={{ margin: 0 }}>Only stops with a recorded step-free entrance</span>
             </label>
             <p className="planner-note" data-testid="text-access-filter-note">This filter only uses entrance information recorded for each attraction. It does not assess the paths between sights and is not a promise of an accessible route.</p>
+          </div>
+          <div className="planner-summary" data-testid="text-walk-settings" aria-live="polite" aria-atomic="true">
+            <strong className="planner-summary-title">Your walk settings</strong>
+            <dl className="planner-summary-grid">
+              <div><dt>Starting point</dt><dd>{selectedStartName}</dd></div>
+              <div><dt>Attraction search</dt><dd>{searchDistanceLabel}</dd></div>
+              <div><dt>Maximum walk</dt><dd>{defaultWalkLimitKm(radius)} km total</dd></div>
+              <div><dt>Stops</dt><dd>{stopTargetLabel}</dd></div>
+            </dl>
           </div>
           <div className="planner-actions">
             <button className="button-primary" disabled={!ready || busy} onClick={go} data-testid="button-plan-route">
