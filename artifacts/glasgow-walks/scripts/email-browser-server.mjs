@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
+const fixtures = resolve(root, 'tests/walk-browser');
 // Explicit public fixture configuration: never inherit the owner's VITE secrets.
 const server = await createServer({
   configFile: false, root, cacheDir: resolve(root, 'node_modules/.vite-email-tests'),
@@ -17,6 +18,12 @@ const server = await createServer({
     transform(code, id) {
       if (id.endsWith('/src/walk-email.ts')) return code.replaceAll('import.meta.env.VITE_TURNSTILE_SITE_KEY',
         '(new URLSearchParams(window.location.search).has("unconfigured") ? "" : "public-fixture")');
+    },
+  },
+  {
+    name: 'isolated-email-components', enforce: 'pre',
+    resolveId() {
+      return;
     },
   }, react(), tailwindcss()],
   esbuild: { target: 'es2022' },

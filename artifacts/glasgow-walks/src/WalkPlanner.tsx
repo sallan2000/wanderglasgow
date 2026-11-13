@@ -187,7 +187,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const searchDistanceLabel = radius === 10 ? 'Up to 10 km on foot' : `Within ${radius} km on foot`;
   const stopTargetLabel = maxStops === 'as-many-as-fit' ? 'As many as fit (6+)' : `Up to ${maxStops}`;
 
-  const finalStop = plan!.stops.length > 0 ? plan!.stops[plan!.stops.length - 1] : null;
+  const finalStop = plan !== null && plan.stops.length > 0 ? plan.stops[plan.stops.length - 1] : null;
 
   return (
     <section className="planner" id="planner" data-testid="section-planner">
