@@ -95,7 +95,8 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
       setCatalogueNotice(catalogue.notice ?? '');
       const result = await planAttractionWalk(origin, { theme: mode === 'theme' ? themes : 'All', radiusKm: radius, maxStops, accessPreference }, controller.signal, catalogue.attractions);
       if (id !== run.current) return;
-      setPlan(result); setStatus('ready');
+      setPlan(result);
+      setStatus('ready');
     } catch (e: any) {
       if (id !== run.current || e?.name === 'AbortError') return;
       let msg = 'Something went wrong planning this walk. Please try again.';
@@ -182,6 +183,8 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     : startingAreas.areas.find(area => area.id === start)?.name ?? 'Choose a starting point';
   const searchDistanceLabel = radius === 10 ? 'Up to 10 km on foot' : `Within ${radius} km on foot`;
   const stopTargetLabel = maxStops === 'as-many-as-fit' ? 'As many as fit (6+)' : `Up to ${maxStops}`;
+
+  const finalStop = plan!.stops.length > 0 ? plan!.stops[plan!.stops.length - 1] : null;
 
   return (
     <section className="planner" id="planner" data-testid="section-planner">
@@ -299,6 +302,16 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
               <span>{plan.stops.length} stops</span>
               <span>{fmtKm(plan.distanceMeters)} walking</span>
               <span>about {Math.ceil(plan.durationSeconds / 60)} min, excluding stops</span>
+            </div>
+            <div className="plan-start-finish" data-testid="text-plan-start-finish">
+              <div className="plan-start-finish-row">
+                <dt className="start-finish-kicker">Start</dt>
+                <dd className="start-finish-detail">{selectedStartName}</dd>
+              </div>
+              <div className="plan-start-finish-row">
+                <dt className="start-finish-kicker">Finish</dt>
+                <dd className="start-finish-detail"><b>{finalStop!.name ?? ''}</b>{finalStop!.place ? ` · ${finalStop!.place}` : ''}</dd>
+              </div>
             </div>
             {plan.stops.length > 7 && (
               <div className="planner-msg" role="status" data-testid="status-many-stops">

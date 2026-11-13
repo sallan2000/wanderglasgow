@@ -20,6 +20,14 @@ export default function ItineraryActions({ itinerary }: { itinerary: ItinerarySn
         Download shows the listed stops. Planned walks also include the chosen start and calculated route, which may include GPS.
         {' '}OpenStreetMap gets the approximate map area and standard request data, not your file or stop stories. The HTML stays on your device unless shared.
       </p>
+      {planned && itinerary.stops.length > 0 && (
+        <p className="itinerary-start-finish" data-testid="text-itinerary-start-finish">
+          <b>Start</b> {itinerary.start.label} · <b>Finish</b>
+          {itinerary.stops[itinerary.stops.length - 1]?.name
+            ? ` ${itinerary.stops[itinerary.stops.length - 1]?.name}`
+            : ''}
+        </p>
+      )}
       <div className="itinerary-buttons">
         <GoogleMapsNavigationLink points={navigationPoints} testId="button-open-itinerary-navigation" />
       </div>
