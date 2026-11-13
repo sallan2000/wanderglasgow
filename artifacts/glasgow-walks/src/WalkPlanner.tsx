@@ -150,7 +150,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   };
 
   useEffect(() => {
-    if (!plan) return;
+    if (!plan || !Array.isArray(plan.stops) || plan.stops.length === 0) return;
     setMapStatus('loading');
     let active = true;
     let map: any;
@@ -187,7 +187,9 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const searchDistanceLabel = radius === 10 ? 'Up to 10 km on foot' : `Within ${radius} km on foot`;
   const stopTargetLabel = maxStops === 'as-many-as-fit' ? 'As many as fit (6+)' : `Up to ${maxStops}`;
 
-  const finalStop = plan !== null && plan.stops.length > 0 ? plan.stops[plan.stops.length - 1] : null;
+  const finalStop = plan && Array.isArray(plan.stops) && plan.stops.length > 0
+    ? plan.stops[plan.stops.length - 1]
+    : null;
 
   return (
     <section className="planner" id="planner" data-testid="section-planner">
@@ -297,7 +299,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
         )}
       </div>
 
-      {plan && status === 'ready' && (
+      {plan && Array.isArray(plan.stops) && plan.stops.length > 0 && status === 'ready' && (
         <div className="plan-result" data-testid="result-plan">
           <div>
             <div className="plan-summary" data-testid="text-plan-summary">
