@@ -444,6 +444,7 @@
   --orange: #d86543;
   /* Keep decorative coral bright; use strong coral for small text and labelled controls. */
   --orange-strong: #963817;
+  --ink-light: #6f8f8a;
   --line: #d7d0c1;
   --lime: #d2df8c;
 }
@@ -591,6 +592,13 @@ a.button-secondary { text-decoration:none; }
 .planner-actions button:disabled{opacity:.6;cursor:wait}
 .planner-msg{margin-top:18px;padding:14px 16px;font-size:14px;line-height:1.55;background:#f4e8c0;color:#594d3c}
 .planner-msg.loading{background:#e2e8d3;color:var(--ink)}
+.planner-recovery{margin-top:0;padding:18px 18px 16px;font-size:14px;line-height:1.55}
+.planner-recovery h4{font:600 11px var(--app-font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 6px}
+.planner-recovery .planner-note{font-size:12px;color:var(--ink-soft);margin:0 0 12px}
+.recovery-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}
+.recovery-actions .chip.button-secondary{background:#fff;border-color:var(--ink-light);color:var(--ink);font-weight:600}
+.recovery-actions .chip.button-secondary:hover{background:var(--ink-light)}
+.planner-recovery .planner-actions{margin-top:6px}
 .plan-result{margin-top:26px;display:grid;grid-template-columns:1.1fr 1fr;gap:22px;align-items:start}
 .plan-summary{display:flex;gap:22px;flex-wrap:wrap;font:12px var(--app-font-mono);padding:14px 0;border-block:1px solid var(--line);margin-bottom:14px}
 .plan-map{height:420px;border:1px solid var(--line);background:#e6e9dc;position:relative}

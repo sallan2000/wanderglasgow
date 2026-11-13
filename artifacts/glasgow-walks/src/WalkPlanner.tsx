@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LocateFixed, Navigation } from 'lucide-react';
 import { loadLeaflet, getPosition } from './browser-helpers';
 import { MapTileNotice, useMapTiles } from './map-tiles';
-import { planAttractionWalk, WalkPlanningError, SEARCH_RADII_KM, defaultWalkLimitKm, type PlannedWalk } from './walk-planner';
+import { planAttractionWalk, WalkPlanningError, SEARCH_RADII_KM, defaultWalkLimitKm, type PlannedWalk, type PlannerOptions } from './walk-planner';
 import type { Theme } from './tours';
 import type { Position } from './attractions';
 import { CatalogueError, loadPublicCatalogue } from './attraction-store';
@@ -14,6 +14,7 @@ import EmailWalk from './EmailWalk';
 import { plannedEmailWalk } from './walk-email';
 import ItineraryActions from './ItineraryActions';
 import { plannedItinerary } from './itinerary-snapshot';
+import { getRecoveryActions, type RecoveryAction } from './planner-recovery';
 
 type Mode = 'theme' | 'nearby';
 type Start = string;
@@ -104,6 +105,44 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
       else if (typeof e?.code === 'number') msg = e.message || 'Your position could not be found. Pick a Glasgow starting point instead.';
       setError(msg); setStatus('error');
     }
+  };
+
+  const options: PlannerOptions = {
+    theme: mode === 'theme' ? themes : 'All',
+    radiusKm: radius,
+    maxStops: maxStops,
+    accessPreference,
+  };
+  const recoveryActions = error instanceof WalkPlanningError
+    ? getRecoveryActions(error, options, SEARCH_RADII_KM)
+    : [];
+
+  const applyRecovery = (action: RecoveryAction) => {
+    cancel();
+    switch (action.kind) {
+      case 'radius-up':
+        setRadius((prev) => {
+          const i = SEARCH_RADII_KM.indexOf(prev);
+          return i < SEARCH_RADII_KM.length - 1 ? SEARCH_RADII_KM[i + 1] : prev;
+        });
+        break;
+      case 'radius-down':
+        setRadius((prev) => {
+          const i = SEARCH_RADII_KM.indexOf(prev);
+          return i > 0 ? SEARCH_RADII_KM[i - 1] : prev;
+        });
+        break;
+      case 'stops-down':
+        setMaxStops((prev) => (prev === 'as-many-as-fit' || prev <= 1 ? 1 : prev - 1));
+        break;
+      case 'switch-to-nearby':
+        setMode('nearby');
+        break;
+      case 'start-mylocation':
+        setStart('gps');
+        break;
+    }
+    go();
   };
 
   useEffect(() => {
@@ -241,7 +280,13 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
         {status === 'error' && (
           <div className="planner-msg" role="alert" data-testid="status-planner-error">
             {error}
-            <div style={{ marginTop: 10 }}><button className="chip" onClick={go} data-testid="button-planner-retry">Try again</button></div>
+            {error instanceof WalkPlanningError && recoveryActions.length > 0 && (
+              <PlannerRecoveryPanel
+                actions={recoveryActions}
+                onRetry={() => go()}
+                onApply={applyRecovery}
+              />
+            )}
           </div>
         )}
       </div>
@@ -279,8 +324,11 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
           <div>
             {mapStatus === 'loading' && <p className="planner-note" role="status" data-testid="status-plan-map-loading">Loading the interactive map…</p>}
             {mapStatus === 'error' && <div className="planner-msg" role="alert" data-testid="status-plan-map-error">
-              {mapFailure === 'library' ? 'The map library or styles could not load. Check your connection.' : 'The interactive map could not be initialized. This is not a background-tile failure.'} Your calculated walk and ordered attraction list remain available.
+              {mapFailure === 'library'
+                ? 'The map library could not load. Check your connection and retry.'
+                : 'The interactive map could not be initialised; this is not a background-tile failure.'}
               <div style={{ marginTop: 10 }}><button type="button" className="chip" onClick={() => setMapAttempt(n => n + 1)} data-testid="button-plan-map-retry">Retry map</button></div>
+              <p className="planner-note" style={{ marginTop: 10 }}>Your walk plan is still here: the ordered stops list, the email version, and the Google Maps route are all available even while the map reloads.</p>
             </div>}
             {mapStatus === 'ready' && <MapTileNotice tiles={tiles} preserved="Your route, start location and stop markers remain on the map, and the ordered attraction list is still available." testId="plan-map" />}
             <div className="plan-map" ref={mapEl} data-testid="map-plan" style={mapStatus === 'error' ? { display: 'none' } : undefined} />
