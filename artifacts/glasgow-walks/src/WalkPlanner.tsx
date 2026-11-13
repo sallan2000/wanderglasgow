@@ -5,6 +5,7 @@ import { MapTileNotice, useMapTiles } from './map-tiles';
 import { planAttractionWalk, WalkPlanningError, SEARCH_RADII_KM, defaultWalkLimitKm, type PlannedWalk, type PlannerOptions } from './walk-planner';
 import type { Theme } from './tours';
 import type { Position } from './attractions';
+import PlannerRecoveryPanel from './components/planner-recovery';
 import { CatalogueError, loadPublicCatalogue } from './attraction-store';
 import { loadPublicStartingAreas, StartingAreaError } from './starting-area-store';
 import { useStartingAreas } from './use-starting-areas';
@@ -40,6 +41,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
   const [accessPreference, setAccessPreference] = useState<AccessPreference>('any');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+  const [walkPlanningError, setWalkPlanningError] = useState<WalkPlanningError | null>(null);
   const [catalogueNotice, setCatalogueNotice] = useState('');
   const [plan, setPlan] = useState<PlannedWalk | null>(null);
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -100,7 +102,8 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     } catch (e: any) {
       if (id !== run.current || e?.name === 'AbortError') return;
       let msg = 'Something went wrong planning this walk. Please try again.';
-      if (e instanceof WalkPlanningError || e instanceof CatalogueError || e instanceof StartingAreaError) msg = e.message;
+      if (e instanceof WalkPlanningError) { msg = e.message; setWalkPlanningError(e); }
+      else if (e instanceof CatalogueError || e instanceof StartingAreaError) msg = e.message;
       else if (e?.code === 1) msg = 'Location permission was declined. Nothing was saved. Choose an available saved starting point to plan without GPS.';
       else if (e?.code === 2 || e?.code === 3) msg = 'Your position could not be found. Pick a Glasgow starting point instead.';
       else if (typeof e?.code === 'number') msg = e.message || 'Your position could not be found. Pick a Glasgow starting point instead.';
@@ -114,8 +117,8 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
     maxStops: maxStops,
     accessPreference,
   };
-  const recoveryActions = error instanceof WalkPlanningError
-    ? getRecoveryActions(error, options, SEARCH_RADII_KM)
+  const recoveryActions = walkPlanningError instanceof WalkPlanningError
+    ? getRecoveryActions(walkPlanningError, options, { radii: SEARCH_RADII_KM })
     : [];
 
   const applyRecovery = (action: RecoveryAction) => {
@@ -283,7 +286,7 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
         {status === 'error' && (
           <div className="planner-msg" role="alert" data-testid="status-planner-error">
             {error}
-            {error instanceof WalkPlanningError && recoveryActions.length > 0 && (
+            {walkPlanningError instanceof WalkPlanningError && recoveryActions.length > 0 && (
               <PlannerRecoveryPanel
                 actions={recoveryActions}
                 onRetry={() => go()}

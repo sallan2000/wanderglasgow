@@ -5,7 +5,7 @@ import { findEfficientOrderAsync, MAX_WALK_CANDIDATES, WalkOptimisationLimitErro
 export { findEfficientOrder } from './efficient-walk-order';
 
 // The "5 km+" choice is a bounded search, not an unlimited walking request.
-export const SEARCH_RADII_KM = [1, 2, 3, 4, 5, 10] as const;
+export const SEARCH_RADII_KM: readonly number[] = [1, 2, 3, 4, 5, 10];
 export const defaultWalkLimitKm = (radiusKm: number) => radiusKm === 10 ? 15 : 5;
 
 export type PlannerOptions = {
