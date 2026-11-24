@@ -160,6 +160,9 @@ overrides:
   proxy-addr: 2.0.8
   # Tailwind/PostCSS accept the patched source-map-js version within their ranges.
   source-map-js: 1.2.2
+  # Patched compatible releases for URI parsing and Express query handling.
+  "ajv>fast-uri": 3.1.9
+  "express>qs": 6.17.0
 
 allowBuilds:
   esbuild: true

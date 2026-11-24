@@ -25,6 +25,7 @@ try {
   const connectSources = csp.match(/\bconnect-src\s+([^;]+)/)?.[1].split(/\s+/) ?? [];
   assert.ok(connectSources.includes('https://overpass.private.coffee'), 'The site CSP permits the primary itinerary map request'); checks++;
   assert.ok(connectSources.includes('https://overpass-api.de'), 'The site CSP permits the itinerary map fallback'); checks++;
+  assert.ok(connectSources.includes('https://overpass.osm.ch'), 'The site CSP permits the Swiss itinerary map fallback'); checks++;
   const stop = { name: '<script>alert("name")</script>', place: 'City & centre', lat: 55.86, lon: -4.25,
     story: '</p><img src="https://evil.invalid" onerror="alert(1)">\nLine two' };
   const originalName = stop.name;

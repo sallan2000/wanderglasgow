@@ -74,17 +74,23 @@ export function createEmailHandler(deps: Dependencies): (request: Request) => Pr
       // A one-way keyed digest is used only for short-lived abuse counters.
       // No recipient, token, origin, itinerary or provider response is logged/stored.
       const hash = await hmac(pepper, `recipient:${input.email.toLowerCase()}`);
-      const limit = await getJson(`${dbUrl}/rest/v1/rpc/claim_walk_email_send`, {
-        method: 'POST', headers: dbHeaders, body: JSON.stringify({ recipient_hash: hash }),
+      // Bound catalogue lookups separately from the send quota, including invalid walks.
+      const attempt = await getJson(`${dbUrl}/rest/v1/rpc/claim_walk_email_attempt`, {
+        method: 'POST', headers: dbHeaders, body: '{}',
       });
-      if (!limit.response.ok) throw new DeliveryError('setup_required');
-      if (limit.value !== true) throw new DeliveryError('rate_limited', 429);
+      if (!attempt.response.ok) throw new DeliveryError('setup_required');
+      if (attempt.value !== true) throw new DeliveryError('rate_limited', 429);
       const itinerary = await resolveItinerary(input.walk, async (table, params) => {
         const result = await getJson(`${dbUrl}/rest/v1/${table}?${params}`, { headers: dbHeaders });
         if (!result.response.ok || !Array.isArray(result.value)) throw new DeliveryError('service_unavailable');
         return result.value;
       });
       const content = renderItinerary(itinerary);
+      const limit = await getJson(`${dbUrl}/rest/v1/rpc/claim_walk_email_send`, {
+        method: 'POST', headers: dbHeaders, body: JSON.stringify({ recipient_hash: hash }),
+      });
+      if (!limit.response.ok) throw new DeliveryError('setup_required');
+      if (limit.value !== true) throw new DeliveryError('rate_limited', 429);
       const idem = await hmac(pepper, JSON.stringify([input.requestId, input.email, input.walk]));
       let sent;
       try {

@@ -32,7 +32,7 @@ try {
     stops: attractions.map(s => ({ name: s.name, place: s.place, story: s.description, lat: s.latitude, lon: s.longitude })) };
   let state;
   const reset = () => { state = { requests: [], accepted: new Map(), captcha: { success: true, action: 'walk-email', hostname: 'guide.fixture.invalid' },
-    rate: true, providerStatus: 200, providerBody: { id: 'fake-message' }, rows: attractions, curated: [curated], dbStatus: 200, providerThrows: false }; };
+    attempt: true, rate: true, sendStatus: 200, providerStatus: 200, providerBody: { id: 'fake-message' }, rows: attractions, curated: [curated], dbStatus: 200, providerThrows: false }; };
   const fakeFetch = async (url, init = {}) => {
     const body = init.body ? JSON.parse(init.body) : null;
     state.requests.push({ url: String(url), init, body });
@@ -45,10 +45,14 @@ try {
     const u = new URL(url);
     assert.equal(u.hostname, 'supabase.fixture.invalid', 'No unexpected external request');
     assert.equal(init.headers.apikey, 'fake-service');
+    if (u.pathname.endsWith('/claim_walk_email_attempt')) {
+      assert.deepEqual(body, {});
+      return json(state.attempt, state.dbStatus);
+    }
     if (u.pathname.endsWith('/claim_walk_email_send')) {
       assert.match(body.recipient_hash, /^[0-9a-f]{64}$/);
       assert.deepEqual(Object.keys(body), ['recipient_hash']);
-      return json(state.rate, state.dbStatus);
+      return json(state.rate, state.sendStatus);
     }
     assert.equal(u.searchParams.get('published'), 'eq.true', 'Fetch published records only');
     if (u.pathname.endsWith('/glasgow_attractions')) return json(state.rows, state.dbStatus);
@@ -112,14 +116,19 @@ try {
     reset(); state.captcha = captcha;
     check((await outcome()).body.code === 'verification_failed' && providerCalls().length === 0, 'Captcha success/action/hostname enforced');
   }
+  reset(); state.attempt = false;
+  check((await outcome()).status === 429 && state.requests.length === 2, 'Attempt denial blocks catalogue and provider');
   reset(); state.rate = false;
   check((await outcome()).status === 429 && providerCalls().length === 0, 'Limiter enforced');
   reset(); state.dbStatus = 404;
-  check((await outcome()).body.code === 'setup_required' && providerCalls().length === 0, 'Missing limiter fails closed');
+  check((await outcome()).body.code === 'setup_required' && providerCalls().length === 0, 'Missing attempt limiter fails closed');
+  reset(); state.sendStatus = 404;
+  check((await outcome()).body.code === 'setup_required' && providerCalls().length === 0, 'Missing send limiter fails closed');
+  const sendClaims = () => state.requests.filter(r => r.url.endsWith('/claim_walk_email_send'));
   reset(); state.rows = [attractions[0]];
-  check((await outcome()).body.code === 'unavailable_walk' && providerCalls().length === 0, 'Missing/unpublished planned stop rejected');
+  check((await outcome()).body.code === 'unavailable_walk' && providerCalls().length === 0 && sendClaims().length === 0, 'Missing/unpublished planned stop does not consume send quota');
   reset(); state.curated = [];
-  check((await outcome({ ...input, walk: { kind: 'curated', walkId: 'removed' } })).body.code === 'unavailable_walk', 'Removed/unpublished curated walk rejected');
+  check((await outcome({ ...input, walk: { kind: 'curated', walkId: 'removed' } })).body.code === 'unavailable_walk' && sendClaims().length === 0, 'Removed curated walk does not consume send quota');
   for (const name of ['RESEND_API_KEY', 'TURNSTILE_SECRET_KEY', 'WALK_EMAIL_HASH_SECRET', 'WALK_EMAIL_FROM']) {
     reset(); const original = env[name]; delete env[name];
     check((await outcome()).body.code === 'setup_required' && state.requests.length === 0, 'Missing configuration fails closed');
@@ -170,15 +179,23 @@ try {
   await db.exec(sql);
   const hash = 'a'.repeat(64);
   const claim = async value => (await db.query('select public.claim_walk_email_send($1) as allowed', [value])).rows[0].allowed;
+  const attempt = async () => (await db.query('select public.claim_walk_email_attempt() as allowed')).rows[0].allowed;
   for (const role of ['anon', 'authenticated']) {
     await db.exec(`set role ${role}`);
     await assert.rejects(claim(hash), e => e.code === '42501'); checks++;
+    await assert.rejects(attempt(), e => e.code === '42501'); checks++;
     await assert.rejects(db.query('select * from glasgow_walks_private.walk_email_limits'), e => e.code === '42501'); checks++;
     await db.exec('reset role');
   }
   await db.exec('set role service_role');
   check(await claim(hash), 'Service role can claim'); check(await claim(hash), 'Second accepted'); check(await claim(hash), 'Third accepted');
   check(!await claim(hash), 'Fourth recipient attempt denied');
+  for (let i = 0; i < 10; i++) check(!await claim(hash), 'Repeated recipient denial');
+  await db.exec('reset role');
+  check((await db.query("select attempts from glasgow_walks_private.walk_email_limits where bucket = 'global'")).rows[0].attempts === 3, 'Recipient denials do not charge global quota');
+  await db.exec('set role service_role');
+  check(await claim('b'.repeat(64)), 'Another recipient retains global capacity');
+  check(await attempt(), 'Service role can claim lookup attempt');
   await assert.rejects(claim('raw@example.invalid'), e => e.code === '22023'); checks++;
   await db.exec('reset role');
   await db.exec(sql);
@@ -186,8 +203,21 @@ try {
   const columns = (await db.query("select column_name from information_schema.columns where table_name='walk_email_limits' order by ordinal_position")).rows.map(x => x.column_name);
   assert.deepEqual(columns, ['bucket', 'started_at', 'attempts']); checks++;
   await db.exec('truncate glasgow_walks_private.walk_email_limits');
+  const simultaneousClaims = await Promise.all(Array.from({ length: 20 }, () => claim(hash)));
+  check(simultaneousClaims.filter(Boolean).length === 3, 'Recipient send limit holds across queued claims');
+  await db.exec('truncate glasgow_walks_private.walk_email_limits');
   for (let i = 0; i < 100; i++) check(await claim(i.toString(16).padStart(64, '0')), 'Global accepted capacity');
   check(!await claim('b'.repeat(64)), 'Global 101st attempt denied');
+  check((await db.query("select count(*)::int as n from glasgow_walks_private.walk_email_limits where bucket = $1", ['recipient:' + 'b'.repeat(64)])).rows[0].n === 0, 'Global denial does not charge recipient');
+  await db.exec('truncate glasgow_walks_private.walk_email_limits');
+  const attempts = await Promise.all(Array.from({ length: 320 }, () => attempt()));
+  check(attempts.filter(Boolean).length === 300, 'Attempt budget has a hard 300 limit');
+  await db.exec(sql);
+  check(!await attempt(), 'Re-running setup preserves attempt budget');
+  await db.exec("update glasgow_walks_private.walk_email_limits set started_at = now() - interval '3 hours'");
+  check(await attempt(), 'Attempt budget resets after its window');
+  await db.exec('truncate glasgow_walks_private.walk_email_limits');
+  check(await claim('c'.repeat(64)), 'Seed old rate key');
   await db.exec("update glasgow_walks_private.walk_email_limits set started_at = now() - interval '3 hours'");
   check(await claim(hash), 'Expired capacity resets');
   check((await db.query('select count(*)::int as n from glasgow_walks_private.walk_email_limits')).rows[0].n === 2, 'Old rate keys pruned');

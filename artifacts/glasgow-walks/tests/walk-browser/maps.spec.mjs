@@ -59,7 +59,7 @@ for (const component of ['planner', 'admin']) {
     await openMapFixture(page, component);
     if (component === 'planner') await planAtCentre(page);
     await expect(page.getByTestId(component === 'planner' ? 'status-plan-map-error' : 'status-map-error'))
-      .toContainText('The map library or styles could not load');
+      .toContainText(component === 'planner' ? 'The map library could not load' : 'The map library or styles could not load');
     expect(await page.evaluate(() => window.tamperedLibraryExecuted ?? false)).toBe(false);
     expect(await page.evaluate(() => window.L ?? null)).toBeNull();
     await page.getByTestId(component === 'planner' ? 'button-plan-map-retry' : 'button-map-retry').click();
@@ -73,7 +73,7 @@ for (const component of ['planner', 'admin']) {
     await openMapFixture(page, component);
     if (component === 'planner') await planAtCentre(page);
     await expect(page.getByTestId(component === 'planner' ? 'status-plan-map-error' : 'status-map-error'))
-      .toContainText('The map library or styles could not load');
+      .toContainText(component === 'planner' ? 'The map library could not load' : 'The map library or styles could not load');
     expect(await page.evaluate(() => window.mapFixture?.created ?? 0)).toBe(0);
     await page.getByTestId(component === 'planner' ? 'button-plan-map-retry' : 'button-map-retry').click();
     await expect(page.locator('.leaflet-container')).toBeVisible();

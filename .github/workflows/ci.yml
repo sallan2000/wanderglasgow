@@ -39,6 +39,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
+      - name: Test browser-suite wrapper
+        run: python3 artifacts/glasgow-walks/tests/test-browser-wrapper.py
+      - name: Test development server security
+        run: pnpm --filter @workspace/glasgow-walks run test:server-security
+      - name: Production build
+        run: pnpm --filter @workspace/glasgow-walks run build
 
   test:
     name: Local tests
@@ -112,5 +118,7 @@ jobs:
       - run: pnpm --filter @workspace/glasgow-walks run test:walks
       - run: pnpm --filter @workspace/glasgow-walks run test:itinerary:browser
       - run: pnpm --filter @workspace/glasgow-walks run test:access:browser
+      - run: pnpm --filter @workspace/glasgow-walks run test:category:browser
       - run: pnpm --filter @workspace/glasgow-walks run test:starting-areas:browser
       - run: pnpm --filter @workspace/glasgow-walks run test:email:browser
+      - run: pnpm --filter @workspace/glasgow-walks run test:walks:browser
