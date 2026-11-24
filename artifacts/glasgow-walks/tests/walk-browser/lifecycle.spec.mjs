@@ -99,7 +99,9 @@ test('map stylesheet error does not poison later library retry', async ({ page }
 });
 
 test('tile retry reuses the map and later errors are reported only for active tiles', async ({ page }) => {
-  const verify = await isolate(page);
+  // Gate later tile batches after the retry has completed successfully.
+  const options = { holdTiles: false };
+  const verify = await isolate(page, options);
   await open(page); await preview(page); await measure(page);
   const originalMap = await page.evaluateHandle(() => window.mapFixture.live[0]);
   const originalTiles = await page.evaluateHandle(() => {
@@ -142,16 +144,23 @@ test('tile retry reuses the map and later errors are reported only for active ti
   expect(await page.evaluate(() => window.mapFixture.removed)).toBe(0);
   expect(await page.evaluate(() => window.observerFixture.live)).toBe(1);
 
+  // Hold future redraw/reopen requests, so no successful batch can erase the
+  // manually injected failures before their listener ownership is asserted.
+  options.holdTiles = true;
+  await page.evaluate(tiles => tiles.redraw(), originalTiles);
+  await expect.poll(() => options.heldTileRequests ?? 0).toBeGreaterThan(0);
   // The same active layer remains able to report a later background failure.
   await page.evaluate(tiles => tiles.fire('tileerror'), originalTiles);
   await expect(page.getByTestId('walk-status-tile-error')).toBeVisible();
 
   // Once the preview is reopened, a detached layer cannot report errors for
   // the replacement layer; errors from the active layer remain visible.
+  const heldBeforeReopen = options.heldTileRequests;
   await page.getByTestId('walk-button-preview').click();
   await expect(page.locator('.leaflet-container')).toHaveCount(0);
   await page.getByTestId('walk-button-preview').click();
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
+  await expect.poll(() => options.heldTileRequests).toBeGreaterThan(heldBeforeReopen);
   const activeTiles = await page.evaluateHandle(() => {
     let tiles;
     window.mapFixture.live[0].eachLayer(layer => { if (layer._url) tiles = layer; });

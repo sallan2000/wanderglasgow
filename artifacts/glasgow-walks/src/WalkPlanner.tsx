@@ -161,7 +161,9 @@ export default function WalkPlanner({ entry, categories, categoriesLoading, cate
       if (!active || !mapEl.current) return;
       // Initialise the view before mixed vector layers create their renderers.
       constructed = true;
-      map = L.map(mapEl.current, { scrollWheelZoom: false });
+      // Leaflet's animated zoom completion timer can outlive this map when
+      // replanning removes it. Keep zoom controls, but avoid that teardown race.
+      map = L.map(mapEl.current, { scrollWheelZoom: false, zoomAnimation: false });
       map.setView([plan.origin.lat, plan.origin.lon], 14);
       detachTiles = tiles.attach(L, map);
       const line = L.geoJSON(plan.geometry, { style: { color: '#183a36', weight: 5, opacity: 0.9 } }).addTo(map);

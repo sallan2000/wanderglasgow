@@ -468,6 +468,52 @@ test('stop target starts at three and 6+ warns when the itinerary has more than 
   await verify({ geolocationRequests: 1 });
 });
 
+test('planner can replan immediately after zoom without a teardown error', async ({ page }) => {
+  const verify = await isolateMaps(page);
+  await openMapFixture(page, 'planner');
+  await page.getByTestId('button-mode-theme').click();
+  await page.getByTestId('button-theme-history').click();
+  await page.getByTestId('button-radius-3').click();
+  await page.getByTestId('button-stops-4').click();
+  await page.getByTestId('button-start-centre').click();
+  await page.getByTestId('button-plan-route').click();
+  await expect(page.locator('.leaflet-container')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.mapFixture.live.length)).toBe(1);
+
+  // Replan in the next animation frame, when Leaflet would have started
+  // an animated zoom and scheduled its 250ms fallback completion timer.
+  const zoom = await page.evaluate(() => new Promise(resolve => {
+    const map = window.mapFixture.live[0];
+    const before = map.getZoom();
+    map.setZoom(before + 1, { animate: true });
+    requestAnimationFrame(() => {
+      const after = map.getZoom();
+      const animating = Boolean(map._animatingZoom);
+      document.querySelector('[data-testid="button-plan-route"]').click();
+      resolve({ before, after, animating });
+    });
+  }));
+  await expect.poll(() => page.evaluate(() => window.mapFixture.removed)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.mapFixture.created)).toBe(2);
+  await page.waitForTimeout(400);
+  await verify();
+  expect(zoom.animating).toBe(false);
+  expect(zoom.after).toBe(zoom.before + 1);
+  await expect(page.getByTestId('result-plan')).toBeVisible();
+  await expect(page.getByTestId('button-theme-history')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-radius-3')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-stops-4')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('button-start-centre')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.plannerFixture.planCalls.at(-1))).toEqual({
+    origin: { lat: 55.8609, lon: -4.2514 },
+    options: { theme: ['History'], radiusKm: 3, maxStops: 4, accessPreference: 'any' },
+  });
+  const before = await page.evaluate(() => window.mapFixture.live[0].getZoom());
+  await page.locator('.leaflet-control-zoom-in').click();
+  await expect.poll(() => page.evaluate(() => window.mapFixture.live[0].getZoom())).toBe(before + 1);
+  await verify();
+});
+
 test('visitor route choices survive tile recovery and ignore errors from a retired tile layer', async ({ page }) => {
   const verify = await isolateMaps(page);
   await openMapFixture(page, 'planner');

@@ -72,8 +72,13 @@ export async function isolate(page, options = {}) {
       if (options.cssErrorFirst && cssRequests === 1) return route.abort();
       return route.fulfill({ contentType: 'text/css', headers: { 'Access-Control-Allow-Origin': '*' }, body: css });
     }
-    if (url.hostname.endsWith('.tile.openstreetmap.org'))
-      return options.tileErrors ? route.abort() : route.fulfill({ contentType: 'image/png', body: transparentTile });
+    if (url.hostname.endsWith('.tile.openstreetmap.org')) {
+      if (options.holdTiles) {
+        options.heldTileRequests = (options.heldTileRequests ?? 0) + 1;
+        return; // Keep every tile pending until the test page closes.
+      }
+      return options.tileErrors ? route.abort() : route.fulfill({ contentType: 'image/png', headers: { 'Cache-Control': 'no-store' }, body: transparentTile });
+    }
     // Fonts are irrelevant to lifecycle assertions and must never go online.
     if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com')
       return route.fulfill({ contentType: 'text/css', body: '' });
