@@ -42,9 +42,10 @@ export const supabase = {
     let heldReadLabel = '';
     let payload: Partial<Row> = {};
     let single = false;
+    let range: [number, number] | null = null;
     const filters: [keyof Row, unknown][] = [];
     const q: any = {
-      select() { return q; }, order() { return q; }, range() { return q; },
+      select() { return q; }, order() { return q; }, range(from: number, to: number) { range = [from, to]; return q; },
       // Intentionally ignore AbortSignal so stale-response guards are tested independently.
       abortSignal() { return q; },
       eq(field: keyof Row, value: unknown) { filters.push([field, value]); return q; },
@@ -76,6 +77,8 @@ export const supabase = {
         }
         const matches = (source: Row[]) => source.filter(row => filters.every(([field, value]) => row[field] === value));
         let result = matches(readSnapshot ?? state.rows);
+        const count = result.length;
+        if (operation === 'read' && range) result = result.slice(range[0], range[1] + 1);
         if (operation === 'save') {
           if (state.rows.some(row => row.name.toLowerCase() === payload.name?.toLowerCase() && row.id !== filters.find(f => f[0] === 'id')?.[1])) {
             return resolve({ data: null, error: { code: '23505' } });
@@ -90,7 +93,7 @@ export const supabase = {
           state.rows = state.rows.filter(row => !result.includes(row));
         }
         if (operation !== 'read') sessionStorage.setItem(key, JSON.stringify(state.rows));
-        resolve({ data: single ? result[0] ?? null : structuredClone(result), error: null });
+        resolve({ data: single ? result[0] ?? null : structuredClone(result), error: null, count });
         if (heldReadLabel) state.listReadSettled.push(heldReadLabel);
       },
     };

@@ -60,6 +60,7 @@ jobs:
           - test:walks
           - test:starting-areas
           - test:itinerary
+          - test:pagination
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

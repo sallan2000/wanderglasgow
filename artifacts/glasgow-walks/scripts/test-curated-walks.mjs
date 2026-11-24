@@ -46,11 +46,11 @@ try {
     stops: input.stops, distance_km: input.distanceKm, minutes: input.minutes, published: true,
     updated_at: '2026-10-03T10:00:00.123456Z' };
   const respond = response => state.responses.push(response);
-  respond({ data: [row], error: null });
+  respond({ data: [row], count: 1, error: null });
   const publicResult = await store.loadPublicWalks();
   assert.equal(publicResult.walks[0].start, input.stops[0].name);
   assert(state.calls.at(-1).some(call => call[0] === 'eq' && call[1] === 'published' && call[2] === true));
-  respond({ data: [], error: null });
+  respond({ data: [], count: 0, error: null });
   assert.deepEqual((await store.loadPublicWalks()).walks, [], 'An intentionally empty published catalogue stays empty');
   respond({ data: null, error: { code: 'PGRST205' } });
   assert.equal((await store.loadPublicWalks()).walks.length, 8, 'Only an explicit not-installed state shows original walks');

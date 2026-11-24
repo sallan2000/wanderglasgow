@@ -14,7 +14,7 @@ test('editor defaults unknown, saves all access values, reopens and reloads from
       const payload = route.request().postDataJSON(); writes.push(payload); row = { ...row, ...payload };
       return route.fulfill({ headers: cors, json: row });
     }
-    return route.fulfill({ headers: cors, json: [row] });
+    return route.fulfill({ headers: { ...cors, 'Access-Control-Expose-Headers': 'Content-Range', 'Content-Range': '0-0/1' }, json: [row] });
   });
   await page.goto('/tests/access/index.html?editor');
   for (const key of ['stepFree', 'accessibleToilet', 'seating']) await expect(page.getByTestId(`select-access-${key}`)).toHaveValue('unknown');
@@ -46,7 +46,7 @@ test('older schema gives a real downloadable upgrade and keeps unsaved access fi
     const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET,PATCH,OPTIONS' };
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     if (route.request().method() === 'PATCH') return route.fulfill({ status: 400, headers: cors, json: { code: 'PGRST204' } });
-    return route.fulfill({ headers: cors, json: [base] });
+    return route.fulfill({ headers: { ...cors, 'Access-Control-Expose-Headers': 'Content-Range', 'Content-Range': '0-0/1' }, json: [base] });
   });
   await page.goto('/tests/access/index.html?editor');
   await page.getByTestId('select-access-stepFree').selectOption('yes');

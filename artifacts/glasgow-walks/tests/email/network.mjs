@@ -51,8 +51,15 @@ export async function isolateEmail(page) {
         return route.fulfill({ status: 200, headers: cors, body: '{"status":"accepted"}' });
       }
       const table = u.pathname.replace('/rest/v1/', '');
-      if (table in tables) return route.fulfill({ status: 200, headers: cors,
-        body: JSON.stringify(table === 'glasgow_attractions' && state.catalogue ? state.catalogue : tables[table]) });
+      if (table in tables) {
+        const rows = table === 'glasgow_attractions' && state.catalogue ? state.catalogue : tables[table];
+        const offset = Number(u.searchParams.get('offset') ?? 0);
+        const limit = Number(u.searchParams.get('limit') ?? rows.length);
+        const pageRows = rows.slice(offset, offset + limit);
+        const range = pageRows.length ? `${offset}-${offset + pageRows.length - 1}` : '*';
+        return route.fulfill({ status: 200, headers: { ...cors, 'Access-Control-Expose-Headers': 'Content-Range',
+          'Content-Range': `${range}/${rows.length}` }, body: JSON.stringify(pageRows) });
+      }
       state.unexpected.push(u.pathname); return route.abort();
     }
     if (u.hostname === 'challenges.cloudflare.com') {

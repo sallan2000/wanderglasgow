@@ -212,7 +212,8 @@ From the repository root, run `pnpm --filter @workspace/glasgow-walks run <scrip
 | `test:access` | Access validation, legacy Unknown defaults, storage contracts, filtering and real isolated PostgreSQL upgrade/fresh-setup permissions. |
 | `test:access:browser` | Actual editor saving/reopening/reloading, schema-upgrade guidance, visitor access display/filter and keyboard/mobile controls with intercepted services. |
 | `test:itinerary` | Snapshot copying, escaping, validation, curated/calculated distinctions, access unknowns, self-contained documents and long stories without network calls. |
-| `test:itinerary:browser` | Both visitor exports, standalone reopening offline, security policy and print lifecycle, multi-page PDF output, malicious prose, keyboard/mobile controls and no export requests/storage. |
+| `test:itinerary:browser` | Current curated and planned walk actions, directions, escaped stops, map failure, mobile layout and absence of retired print/download controls. Export generation is covered by `test:itinerary`, not browser download tests. |
+| `test:pagination` | Exact-count pagination with low server caps, empty and partial pages, cancellation and errors. |
 | `test:admin` | Real isolated PostgreSQL permissions, drafts, validation, conflicts, safe upgrades/seeds, revocation and the read-only audit script. |
 | `test:category:browser` | Category counts, explicit confirmation, replacement selection, focus restoration, stale-count refusal and upgrade guidance through the rendered admin screen. |
 | `test:walks` | Curated-walk validation and storage/measurement request contracts. |

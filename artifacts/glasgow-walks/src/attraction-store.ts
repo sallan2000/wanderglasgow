@@ -156,17 +156,21 @@ export async function removeAttractionCategory(
 
 export async function listAttractionCategories(signal?: AbortSignal): Promise<string[]> {
   const names: string[] = [];
-  for (let offset = 0; ; offset += 1000) {
-    let query = client().from('glasgow_attraction_categories').select('name').order('name').range(offset, offset + 999);
+  // Exact totals avoid an out-of-range probe; advance by rows returned, not the requested limit.
+  for (let offset = 0; ;) {
+    if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
+    let query = client().from('glasgow_attraction_categories').select('name', { count: 'exact' }).order('name').range(offset, offset + 999);
     if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
     if (error) {
       if (missingSchema(error)) throw new CategorySetupError();
       throw new CatalogueError('Attraction categories could not be loaded. Check your connection and try again.');
     }
     names.push(...data.map((row: { name: string }) => row.name));
-    if (data.length < 1000) return sortCategoryNames(names);
+    offset += data.length;
+    if (count === null || count === undefined || (!data.length && offset < count)) throw new CatalogueError('Attraction categories could not be loaded. Check your connection and try again.');
+    if (offset >= count) return sortCategoryNames(names);
   }
 }
 
@@ -201,16 +205,18 @@ export async function addAttractionCategory(input: string): Promise<string> {
 async function readRows(publicOnly: boolean, signal?: AbortSignal): Promise<ManagedAttraction[]> {
   const rows: ManagedAttraction[] = [];
   // Explicit pagination prevents Supabase's default row limit truncating the catalogue.
-  for (let offset = 0; ; offset += 1000) {
+  for (let offset = 0; ;) {
     if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
-    let query = client().from('glasgow_attractions').select('*').order('id').range(offset, offset + 999);
+    let query = client().from('glasgow_attractions').select('*', { count: 'exact' }).order('id').range(offset, offset + 999);
     if (publicOnly) query = query.eq('published', true);
     if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
     if (error) fail(error);
     rows.push(...(data as Row[]).map(fromRow));
-    if (data.length < 1000) break;
+    offset += data.length;
+    if (count === null || count === undefined || (!data.length && offset < count)) throw new CatalogueError('Attractions could not be loaded. Check your connection and try again.');
+    if (offset >= count) break;
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -6,6 +6,8 @@ export const defaultWalkLimitKm = (radius: number) => radius === 10 ? 15 : 5;
 export class WalkPlanningError extends Error {}
 export async function planAttractionWalk(origin: Position, options: PlannerOptions): Promise<PlannedWalk> {
   state.origin = origin;
-  return { origin, theme: options.theme, stops: [], nearby: [], distanceMeters: 100, durationSeconds: 60,
+  const stop = { id: 'fixture-stop', name: 'Fixture attraction', description: 'A nearby attraction.',
+    place: 'Glasgow', theme: 'History', lat: origin.lat + 0.001, lon: origin.lon + 0.001 };
+  return { origin, theme: options.theme, stops: [stop], nearby: [{ ...stop, walkingDistanceMeters: 100, included: true }], distanceMeters: 100, durationSeconds: 60,
     geometry: { type: 'LineString', coordinates: [[origin.lon, origin.lat], [origin.lon + 0.001, origin.lat + 0.001]] }, excludedCount: 0 };
 }

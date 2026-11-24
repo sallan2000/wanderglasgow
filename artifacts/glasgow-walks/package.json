@@ -12,6 +12,7 @@
     "test:planner": "node scripts/test-planner.mjs",
     "test:access": "node scripts/export-supabase-setup.mjs && node scripts/test-access-details.mjs",
     "test:itinerary": "node scripts/test-itinerary-export.mjs",
+    "test:pagination": "node scripts/test-pagination.mjs",
     "test:server-security": "node scripts/test-server-security.mjs",
     "test:itinerary:browser": "tsc -p tsconfig.email-browser.json --noEmit && playwright test --config playwright.itinerary.config.mjs",
     "test:access:browser": "tsc -p tsconfig.access-browser.json --noEmit && playwright test --config playwright.access.config.mjs",

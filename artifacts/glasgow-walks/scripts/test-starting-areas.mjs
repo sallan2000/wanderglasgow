@@ -1,3 +1,4 @@
+import './test-pagination.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -32,9 +33,9 @@ try {
   for (const patch of [{ name: '' }, { name: 'x'.repeat(81) }, { name: ' my location ' }, { lat: NaN }, { lat: 91 }, { lon: -181 }, { lon: Infinity }]) {
     assert.throws(() => store.validateStartingArea({ ...input, ...patch }), store.StartingAreaError);
   }
-  respond({ data: [row], error: null });
+  respond({ data: [row], count: 1, error: null });
   assert.deepEqual((await store.loadPublicStartingAreas()).areas[0], { id: row.id, name: row.name, lat: row.latitude, lon: row.longitude, updatedAt: row.updated_at });
-  respond({ data: [], error: null });
+  respond({ data: [], count: 0, error: null });
   assert.deepEqual((await store.loadPublicStartingAreas()).areas, []);
   respond({ data: null, error: { code: 'PGRST205' } });
   const missing = await store.loadPublicStartingAreas();
@@ -43,7 +44,7 @@ try {
   await assert.rejects(store.listStartingAreas(), store.StartingAreaSetupError);
   respond({ data: null, error: { code: 'NETWORK' } });
   await assert.rejects(store.loadPublicStartingAreas(), store.StartingAreaError);
-  respond({ data: [{ ...row, latitude: null }], error: null });
+  respond({ data: [{ ...row, latitude: null }], count: 1, error: null });
   await assert.rejects(store.loadPublicStartingAreas(), /invalid data/);
   respond({ data: row, error: null });
   const saved = await store.saveStartingArea(input);
@@ -67,8 +68,8 @@ try {
   await assert.rejects(store.listStartingAreas(controller.signal), e => e.name === 'AbortError');
   assert.equal(state.calls.length, callsBefore);
   // Exercise pagination beyond Supabase's standard 1,000-row limit.
-  respond({ data: Array.from({ length: 1000 }, (_, i) => ({ ...row, id: `area-${i}` })), error: null });
-  respond({ data: [row], error: null });
+  respond({ data: Array.from({ length: 1000 }, (_, i) => ({ ...row, id: `area-${i}` })), count: 1001, error: null });
+  respond({ data: [row], count: 1001, error: null });
   assert.equal((await store.listStartingAreas()).length, 1001);
   assert(state.calls.at(-1).some(c => c[0] === 'range' && c[1] === 1000));
   unconfigure();

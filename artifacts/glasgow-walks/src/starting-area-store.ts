@@ -46,15 +46,18 @@ function fromRow(row: Row): StartingArea {
 }
 export async function listStartingAreas(signal?: AbortSignal): Promise<StartingArea[]> {
   const result: StartingArea[] = [];
-  for (let offset = 0; ; offset += 1000) {
+  // Exact totals avoid an out-of-range probe; advance by rows returned, not the requested limit.
+  for (let offset = 0; ;) {
     if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
-    let query = client().from('glasgow_starting_areas').select('*').order('created_at').order('id').range(offset, offset + 999);
+    let query = client().from('glasgow_starting_areas').select('*', { count: 'exact' }).order('created_at').order('id').range(offset, offset + 999);
     if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
     if (error) fail(error);
     result.push(...(data as Row[]).map(fromRow));
-    if (data.length < 1000) return result;
+    offset += data.length;
+    if (count === null || count === undefined || (!data.length && offset < count)) throw new StartingAreaError('Starting areas could not be loaded or saved. Check your connection and try again.');
+    if (offset >= count) return result;
   }
 }
 export async function loadPublicStartingAreas(signal?: AbortSignal): Promise<{ areas: StartingArea[]; notice?: string }> {

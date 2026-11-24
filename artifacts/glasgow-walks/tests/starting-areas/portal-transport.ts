@@ -15,6 +15,15 @@ export const supabase: any = authClient
   : null;
 
 export class CategorySetupError extends CatalogueError {}
+export class CategoryManagementSetupError extends CatalogueError {}
+
+export async function listAttractionCategoryUsage() {
+  throw new Error('Category management is not part of the starting-area portal fixture.');
+}
+
+export async function removeAttractionCategory() {
+  throw new Error('Category management is not part of the starting-area portal fixture.');
+}
 
 export async function listManagedAttractions() {
   return [];

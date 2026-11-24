@@ -55,7 +55,7 @@ try {
   equal(matchesAccessPreference(yes, 'step-free'), true);
   const oldRow = { id: 'old', name: 'Old attraction', description: 'A long enough description.', place: 'Glasgow',
     theme: 'History', latitude: 55.86, longitude: -4.25, published: true, updated_at: '2026-10-01T00:00:00Z' };
-  replies.push({ data: [oldRow], error: null });
+  replies.push({ data: [oldRow], count: 1, error: null });
   const old = (await store.loadPublicCatalogue()).attractions[0];
   equal(old.access, unknown, 'Read old database rows without requiring an upgrade');
   equal(requests.at(-1).actions.some(a => a[0] === 'eq' && a[1] === 'published' && a[2] === true), true);
